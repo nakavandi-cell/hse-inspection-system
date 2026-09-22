@@ -1,0 +1,26 @@
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+
+body {
+    font-family: 'Vazirmatn', Tahoma, sans-serif;
+}
+
+.tab-btn {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    color: #0f766e;
+    background-color: #f8fafc;
+}
+
+.active-tab {
+    color: #0f766e !important;
+    border-bottom-color: #0f766e !important;
+    background-color: #f0fdfa;
+}
