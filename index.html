@@ -3,212 +3,447 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سامانه جامع ممیزی و بازرسی HSE</title>
-    <!-- Tailwind CSS -->
+    <title>سامانه جامع بازرسی و ممیزی HSE</title>
+    <!-- استایل‌ها و ابزارها -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Dexie.js (IndexedDB Wrapper) -->
-    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
-    <!-- Chart.js -->
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-        <!-- SheetJS (Excel Export) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- کتابخانه تبدیل تاریخ شمسی -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jalaali-js/dist/jalaali.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { font-family: 'Vazirmatn', sans-serif; }
+    </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans antialiased">
+<body class="bg-slate-100 text-slate-800 min-h-screen p-4 md:p-8">
 
-    <!-- نوار ناوبری اصلی -->
-    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
-            <div class="flex items-center space-x-3 space-x-reverse">
-                <span class="text-2xl">🛡️</span>
-                <div>
-                    <h1 class="text-lg md:text-xl font-bold tracking-tight">سامانه ممیزی و بازرسی HSE</h1>
-                    <p class="text-xs text-slate-400">داشبورد یکپارچه ارزیابی ریسک و ایمنی تجهیزات</p>
-                </div>
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- هدر -->
+        <header class="bg-blue-800 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold">سامانه مدیریت و تحلیل بازرسی‌های HSE</h1>
+                <p class="text-blue-200 text-sm mt-1">ثبت ممیزی، چک‌لیست‌های ایمنی و پایش شاخص‌های عملکردی</p>
             </div>
-            <div class="flex items-center gap-2">
-                <button id="exportExcelBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs md:text-sm font-semibold transition flex items-center gap-1.5 shadow">
-                    <span>📊</span>
-                    <span>دریافت خروجی جامع اکسل (.xlsx)</span>
+            <div class="flex items-center gap-3">
+                <button id="exportExcelBtn" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 shadow">
+                    📊 خروجی اکسل
+                </button>
+                <button id="clearDataBtn" class="bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 shadow">
+                    🗑️ پاک‌سازی
                 </button>
             </div>
+        </header>
+
+        <!-- کارت‌های آمار و شاخص‌ها -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-medium">کل بازرسی‌ها</span>
+                <p id="kpiTotal" class="text-2xl font-black text-blue-600 mt-1">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-medium">میانگین انطباق</span>
+                <p id="kpiCompliance" class="text-2xl font-black text-emerald-600 mt-1">0%</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-medium">کل عدم انطباق‌ها</span>
+                <p id="kpiNonConform" class="text-2xl font-black text-rose-600 mt-1">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-medium">تجهیزات بازرسی‌شده</span>
+                <p id="kpiEquipments" class="text-2xl font-black text-indigo-600 mt-1">0</p>
+            </div>
         </div>
-    </header>
 
-    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        <!-- انتخاب چک‌لیست -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <label class="block text-sm font-bold text-slate-700 mb-2">انتخاب حوزه و چک‌لیست بازرسی:</label>
+            <select id="checklistSelect" class="w-full md:w-1/2 p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="">-- لطفاً یک چک‌لیست را انتخاب نمایید --</option>
+                <option value="kitchen">🍽️ بهداشت و ایمنی آشپزخانه و غذاخوری</option>
+                <option value="elec_panel">⚡ ایمنی تابلوهای برق (MV/LV)</option>
+                <option value="elec_substation">🏭 پست‌های توزیع برق و ترانسفورماتور</option>
+                <option value="elec_portable">🔌 ابزارها و تجهیزات پرتابل برقی</option>
+                <option value="elec_general">💡 ایمنی عمومی برق و ارتینگ</option>
+                <option value="fire_ext">🧯 کپسول‌های خاموش‌کننده حریق</option>
+                <option value="fire_box">🚒 جعبه‌های آتش‌نشانی (فایرباکس)</option>
+            </select>
+        </div>
 
-        <!-- بخش آمار و شاخص‌های کلیدی عملکرد (KPI Cards) -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <!-- فرم ثبت چک‌لیست -->
+        <form id="inspectionForm" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <h3 id="currentFormTitle" class="text-lg font-bold text-blue-800 border-b pb-3">عنوان فرم</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500">تعداد کل بازرسی‌ها</p>
-                    <h4 id="kpiTotal" class="text-2xl font-black text-slate-800 mt-1">0</h4>
+                    <label class="block font-medium mb-1 text-slate-600">تاریخ بازرسی:</label>
+                    <input type="date" id="inspDate" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
                 </div>
-                <div class="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl">📋</div>
-            </div>
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500">میانگین انطباق کل</p>
-                    <h4 id="kpiCompliance" class="text-2xl font-black text-emerald-600 mt-1">0%</h4>
+                    <label class="block font-medium mb-1 text-slate-600">نام بازرس:</label>
+                    <input type="text" id="inspectorName" required placeholder="مثال: نرگس کاوندی" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
                 </div>
-                <div class="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">✅</div>
-            </div>
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500">کل موارد عدم‌انطباق</p>
-                    <h4 id="kpiNonConform" class="text-2xl font-black text-rose-600 mt-1">0</h4>
+                    <label class="block font-medium mb-1 text-slate-600">کد / تگ تجهیز:</label>
+                    <input type="text" id="equipmentCode" required placeholder="مثال: DB-04 یا EXT-12" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
                 </div>
-                <div class="w-11 h-11 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xl">⚠️</div>
-            </div>
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500">تجهیزات ارزیابی‌شده</p>
-                    <h4 id="kpiEquipments" class="text-2xl font-black text-indigo-600 mt-1">0</h4>
-                </div>
-                <div class="w-11 h-11 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">🏷️</div>
-            </div>
-        </section>
-
-        <!-- بخش نمودارهای تحلیلی -->
-        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
-                    <span>📈</span>
-                    <span>تحلیل نموداری شاخص‌های بازرسی و ریسک</span>
-                </h3>
-                <span class="text-xs text-slate-400">به‌روزرسانی خودکار بر پایه داده‌های ثبت‌شده</span>
-            </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-                <!-- نمودار دایره‌ای انطباق -->
-                <div class="flex flex-col items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <h4 class="text-xs font-bold text-slate-600 mb-3">توزیع وضعیت انطباق در کل سازمان</h4>
-                    <div class="relative w-full max-w-[280px] h-[280px]">
-                        <canvas id="complianceChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- نمودار میله‌ای مقایسه حوزه‌ها -->
-                <div class="flex flex-col items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <h4 class="text-xs font-bold text-slate-600 mb-3">تعداد عدم‌انطباق‌ها به تفکیک چک‌لیست و حوزه</h4>
-                    <div class="relative w-full h-[280px]">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
+                    <label class="block font-medium mb-1 text-slate-600">موقعیت / سالن:</label>
+                    <input type="text" id="location" required placeholder="مثال: سالن تکسچرازینگ" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
                 </div>
             </div>
-        </section>
 
-        <!-- بخش ثبت چک‌لیست جدید -->
-        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
-                <span>📝</span>
-                <span>تکمیل و ثبت فرم بازرسی جدید</span>
-            </h3>
+            <!-- محفظه موارد چک‌لیست -->
+            <div id="itemsContainer" class="space-y-3"></div>
 
-            <div>
-                <label for="checklistSelect" class="block text-xs font-bold text-slate-700 mb-2">نوع چک‌لیست بازرسی را انتخاب نمایید:</label>
-                <select id="checklistSelect" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-600 focus:outline-none">
-                    <option value="">-- جهت باز شدن فرم، اینجا کلیک کنید --</option>
-                    <optgroup label="بهداشت، ایمنی محیط زیست و تغذیه">
-                        <option value="kitchen">آشپزخانه و غذاخوری (۱۸ بند تخصصی)</option>
-                    </optgroup>
-                    <optgroup label="ایمنی تخصصی برق صنعتی">
-                        <option value="elec_panel">تابلوهای برق اصلی و فرعی (MV/LV)</option>
-                        <option value="elec_substation">پست‌های توزیع، ترانسفورماتور و رومینگ</option>
-                        <option value="elec_portable">تجهیزات و ابزارهای پرتابل الکتریکی</option>
-                        <option value="elec_general">ایمنی عمومی برق، روشنایی و ارتینگ محیطی</option>
-                    </optgroup>
-                    <optgroup label="تجهیزات اعلام و اطفای حریق صنعتی">
-                        <option value="fire_ext">کپسول‌های خاموش‌کننده دستی حریق</option>
-                        <option value="fire_box">جعبه‌های آتش‌نشانی و سیستم‌های هوزریل</option>
-                    </optgroup>
-                </select>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition">
+                💾 ثبت نهایی ارزیابی و بروزرسانی آمار
+            </button>
+        </form>
+
+        <!-- نمودارها -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h4 class="text-sm font-bold mb-4 text-slate-700 text-center">وضعیت انطباق کل ممیزی‌ها</h4>
+                <div class="h-64 relative">
+                    <canvas id="complianceChart"></canvas>
+                </div>
             </div>
-
-            <!-- بدنه فرم بازرسی -->
-            <form id="inspectionForm" class="hidden space-y-6 pt-2">
-                <!-- متادیتا و هدر فرم -->
-                <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">تاریخ بازرسی *</label>
-                        <input type="date" id="inspDate" required class="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">نام و نام خانوادگی بازرس *</label>
-                        <input type="text" id="inspectorName" placeholder="مثال: مهندس کاوندی" required class="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">کد اختصاصی تجهیز (Tag ID) *</label>
-                        <input type="text" id="equipmentCode" placeholder="مثال: PNL-MCC-01 یا TR-02" required class="w-full p-2 bg-white border border-blue-400 rounded-lg text-xs font-mono uppercase font-bold text-blue-800">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-700 mb-1">واحد / سالن استقرار *</label>
-                        <input type="text" id="location" placeholder="مثال: تکسچرایزینگ / پست مرکزی" required class="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs">
-                    </div>
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <h4 class="text-sm font-bold mb-4 text-slate-700 text-center">توزیع عدم‌انطباق بر حسب واحد</h4>
+                <div class="h-64 relative">
+                    <canvas id="categoryChart"></canvas>
                 </div>
-
-                <!-- عنوان چک‌لیست جاری -->
-                <div class="flex justify-between items-center bg-slate-800 text-white px-4 py-2.5 rounded-lg">
-                    <span id="currentFormTitle" class="font-bold text-sm">چک‌لیست انتخابی</span>
-                    <span class="text-xs bg-slate-700 px-2.5 py-1 rounded">ارزیابی ۳ حالته استاندارد</span>
-                </div>
-
-                <!-- لیست ردیف‌های بازرسی داینامیک -->
-                <div id="itemsContainer" class="space-y-3"></div>
-
-                <div class="pt-3">
-                    <button type="submit" class="w-full py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2">
-                        <span>💾</span>
-                        <span>ثبت نهایی گزارش بازرسی در حافظه محلی و نمودارها</span>
-                    </button>
-                </div>
-            </form>
-        </section>
-
-        <!-- سوابق و تاریخچه بازرسی‌های ثبت‌شده -->
-        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
-                    <span>🗂️</span>
-                    <span>سوابق و تاریخچه بازرسی‌های اخیر</span>
-                </h3>
-                <button id="clearDataBtn" class="text-xs text-rose-600 hover:underline">پاک‌سازی کل داده‌ها</button>
             </div>
+        </div>
 
+        <!-- جدول سوابق -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b bg-slate-50">
+                <h4 class="text-sm font-bold text-slate-700">📋 آخرین بازرسی‌های ثبت‌شده</h4>
+            </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-right text-xs">
-                    <thead class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                    <thead class="bg-slate-100 text-slate-600 border-b">
                         <tr>
-                            <th class="p-2.5">تاریخ</th>
-                            <th class="p-2.5">کد تجهیز (Tag)</th>
-                            <th class="p-2.5">چک‌لیست</th>
-                            <th class="p-2.5">محل استقرار</th>
-                            <th class="p-2.5">بازرس</th>
-                            <th class="p-2.5 text-center">انطباق</th>
-                            <th class="p-2.5 text-center">عدم‌انطباق</th>
-                            <th class="p-2.5 text-center">نرخ انطباق</th>
-                            <th class="p-2.5 text-center">عملیات</th>
+                            <th class="p-3">تاریخ (شمسی)</th>
+                            <th class="p-3">کد تجهیز</th>
+                            <th class="p-3">چک‌لیست</th>
+                            <th class="p-3">موقعیت</th>
+                            <th class="p-3">بازرس</th>
+                            <th class="p-3 text-center">انطباق</th>
+                            <th class="p-3 text-center">عدم‌انطباق</th>
+                            <th class="p-3 text-center">درصد</th>
+                            <th class="p-3 text-center">عملیات</th>
                         </tr>
                     </thead>
-                    <tbody id="historyTableBody" class="divide-y divide-slate-100">
-                        <!-- رکوردهای ثبت‌شده به صورت خودکار اضافه می‌شوند -->
-                    </tbody>
+                    <tbody id="historyTableBody"></tbody>
                 </table>
             </div>
-        </section>
+        </div>
 
-    </main>
+    </div>
 
-    <footer class="text-center py-6 text-xs text-slate-400 border-t border-slate-200 mt-12">
-        سامانه ممیزی و پایش ایمنی، بهداشت و محیط زیست (HSE Inspection System) — آماده بهره‌برداری آفلاین
-    </footer>
+    <!-- کدهای برنامه (بدون نیاز به فایل خارجی) -->
+    <script>
+        const db = new Dexie('HSE_Inspection_DB');
+        db.version(1).stores({
+            inspections: '++id, date, inspector, equipmentCode, location, checklistType, checklistName, compliantCount, nonCompliantCount, naCount, complianceRate, issues'
+        });
 
-    <script src="app.js"></script>
+        const CHECKLIST_DEFINITIONS = {
+            kitchen: {
+                title: 'چک‌لیست بهداشت، ایمنی و محیط زیست آشپزخانه و غذاخوری',
+                items: [
+                    'وضعیت کارت بهداشت و گواهی سلامت دوره‌ای کلیه پرسنل آشپزخانه معتبر است.',
+                    'استفاده مستمر از لباس کار مصوب، روپوش سفید، کلاه، ماسک و دستکش رعایت می‌شود.',
+                    'تفکیک فیزیکی مراحل آماده‌سازی گوشت، سبزیجات و پخت برقرار است.',
+                    'عملکرد تهویه صنعتی، هودهای پخت و سیستم تخلیه دود استاندارد است.',
+                    'کف، دیوارها و سقف سالن پخت تمیز و فاقد ترک یا آسیب فیزیکی است.',
+                    'توری‌های پنجره‌ها، تله‌های حشرات و مسیرهای دفع آفات سالم هستند.',
+                    'سیستم گاز مجهز به شیرهای قطع سریع اضطراری است.',
+                    'دمای یخچال‌ها و سردخانه‌ها روزانه ثبت و در محدوده استاندارد است.',
+                    'کپسول‌های اطفای حریق متناسب (CO2 / بیوکلاس F) در دسترس هستند.',
+                    'شستشو و ضدعفونی ظروف با آب گرم و مواد استاندارد به طور منظم انجام می‌گیرد.',
+                    'جعبه کمک‌های اولیه با اقلام مخصوص سوختگی و بریدگی مجهز است.',
+                    'محل و مخازن نگهداری پسماند دردار بوده و تخلیه روزانه انجام می‌شود.'
+                ]
+            },
+            elec_panel: {
+                title: 'چک‌لیست ایمنی تابلوهای برق اصلی و فرعی (MV/LV)',
+                items: [
+                    'درب تابلو دارای قفل سالم بوده و دسترسی فقط برای افراد مجاز ممکن است.',
+                    'پلاک شناسایی تجهیز، ولتاژ، برچسب‌های هشدار خطر و شینه‌بندی نصب است.',
+                    'کفپوش عایق لاستیکی استاندارد متناسب با ولتاژ در مقابل تابلو پهن است.',
+                    'سیستم ارت بدنه تابلو با کابل استاندارد و اتصالات محکم برقرار است.',
+                    'کابل‌کشی ورودی و خروجی فاقد پارگی، تنش فیزیکی و فرسایش است.',
+                    'گلندهای کابل کامل بوده و منافذ نفوذ گردوغبار و جوندگان مسدود است.',
+                    'تجهیزات قطع جریان نشتی (RCD/ELCB) و فیوزها سالم هستند.',
+                    'عدم وجود گردوغبار، رطوبت یا آثار داغ‌شدگی (تغییر رنگ) درون سلول‌ها.'
+                ]
+            },
+            elec_substation: {
+                title: 'چک‌لیست پست‌های توزیع برق، ترانسفورماتور و رومینگ',
+                items: [
+                    'سیستم قفل‌گذاری و هشدار ورود افراد غیرمجاز فعال است.',
+                    'سطح و فشار روغن ترانسفورماتورها و رله بوخهلتس نرمال است.',
+                    'سیستم ارتینگ حفاظتی رینگ و صاعقه‌گیرها تست شده است.',
+                    'فن‌های تهویه اتوماتیک و درجه حرارت محیط نرمال است.',
+                    'حوضچه دریافت روغن اضطراری ترانس تمیز و بدون گرفتگی است.',
+                    'دستکش عایق، شیلد محافظ، شمش تخلیه بار الکتریکی آماده به کار است.'
+                ]
+            },
+            elec_portable: {
+                title: 'چک‌لیست تجهیزات و ابزارهای پرتابل الکتریکی',
+                items: [
+                    'کابل تغذیه دستگاه فاقد چسب‌خوردگی، پارگی و سیم‌لخت‌شدگی است.',
+                    'دو شاخه صنعتی سالم است و سیم‌ها مستقیماً وارد پریز نشده‌اند.',
+                    'حفاظ‌های ایمنی دستگاه (گارد دیسک، تسمه یا تیغه) سالم و متصل است.',
+                    'کلید قطع و وصل دستگاه فاقد گیرکردن یا جرقه‌زدگی است.',
+                    'دستگاه دارای بدنه عایق دوبل یا اتصال سیم ارت فعال است.'
+                ]
+            },
+            elec_general: {
+                title: 'چک‌لیست ایمنی عمومی برق، روشنایی و ارتینگ محیطی',
+                items: [
+                    'پریزها و کلیدهای روشنایی محیط سالم و دارای درپوش هستند.',
+                    'سیم‌کشی‌های موقت در مسیر عبور لیفتراک یا نفرات جمع‌آوری شده است.',
+                    'چاه‌ها و هم‌بندی ارت ماشین‌آلات دارای برچسب تست معتبر هستند.',
+                    'سیستم روشنایی اضطراری و علائم خروج در زمان قطع برق فعال می‌شوند.'
+                ]
+            },
+            fire_ext: {
+                title: 'چک‌لیست کپسول‌های خاموش‌کننده دستی حریق',
+                items: [
+                    'کپسول در محل مشخص و دسترسی آزاد بدون هیچ‌گونه مانع قرار دارد.',
+                    'فشارسنج (گیج) در محدوده سبز و استاندارد است.',
+                    'شیلنگ، نازل و بدنه کپسول فاقد خوردگی، شکستگی یا ترک است.',
+                    'پین ایمنی و پلمب سربی کپسول دست‌نخورده و سالم است.',
+                    'کارت بازرسی ماهیانه متصل بوده و تاریخ شارژ معتبر است.'
+                ]
+            },
+            fire_box: {
+                title: 'چک‌لیست جعبه‌های آتش‌نشانی و سیستم‌های هوزریل',
+                items: [
+                    'درب جعبه آتش‌نشانی به راحتی و زاویه ۱۸۰ درجه باز می‌شود.',
+                    'شیلنگ فاقد پوسیدگی، تاخوردگی، شکستگی و نشتی آب است.',
+                    'نازل تفنگی چندحالته (اسپری/جت) متصل و روان است.',
+                    'شیر تغذیه آب فاقد نشتی بوده و فلکه به راحتی می‌چرخد.',
+                    'قرقره هوزریل آزادانه و بدون گیرکردن دوران می‌کند.'
+                ]
+            }
+        };
+
+        function toShamsi(dateStr) {
+            if (!dateStr) return 'نامشخص';
+            try {
+                const d = new Date(dateStr);
+                if (typeof jalaali !== 'undefined' && jalaali.toJalaali) {
+                    const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
+                    return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
+                }
+                return d.toLocaleDateString('fa-IR');
+            } catch(e) {
+                return dateStr;
+            }
+        }
+
+        let pieChart = null;
+        let barChart = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const dateInput = document.getElementById('inspDate');
+            if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+            document.getElementById('checklistSelect').addEventListener('change', (e) => {
+                const key = e.target.value;
+                const form = document.getElementById('inspectionForm');
+                const container = document.getElementById('itemsContainer');
+                const titleEl = document.getElementById('currentFormTitle');
+
+                if (!key || !CHECKLIST_DEFINITIONS[key]) {
+                    form.classList.add('hidden');
+                    container.innerHTML = '';
+                    return;
+                }
+
+                const data = CHECKLIST_DEFINITIONS[key];
+                titleEl.textContent = data.title;
+                container.innerHTML = '';
+
+                data.items.forEach((item, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2';
+                    row.innerHTML = `
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                            <span class="font-medium text-slate-700 leading-relaxed">${index + 1}. ${item}</span>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-emerald-700">
+                                    <input type="radio" name="item_${index}" value="C" checked>
+                                    <span>انطباق</span>
+                                </label>
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-rose-700">
+                                    <input type="radio" name="item_${index}" value="NC">
+                                    <span>عدم‌انطباق</span>
+                                </label>
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-slate-600">
+                                    <input type="radio" name="item_${index}" value="NA">
+                                    <span>کاربرد ندارد</span>
+                                </label>
+                            </div>
+                        </div>
+                        <input type="text" id="action_${index}" placeholder="توضیحات و اقدام اصلاحی در صورت عدم انطباق..." class="w-full p-2 bg-white border border-slate-200 rounded text-xs">
+                    `;
+                    container.appendChild(row);
+                });
+
+                form.classList.remove('hidden');
+            });
+
+            document.getElementById('inspectionForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const key = document.getElementById('checklistSelect').value;
+                const data = CHECKLIST_DEFINITIONS[key];
+                const rawDate = document.getElementById('inspDate').value;
+
+                let cCount = 0, ncCount = 0, naCount = 0;
+                let issues = [];
+
+                data.items.forEach((_, idx) => {
+                    const val = document.querySelector(`input[name="item_${idx}"]:checked`).value;
+                    const action = document.getElementById(`action_${idx}`).value.trim();
+                    if (val === 'C') cCount++;
+                    else if (val === 'NC') {
+                        ncCount++;
+                        issues.push(`بند ${idx + 1}: ${action || 'بدون شرح'}`);
+                    } else naCount++;
+                });
+
+                const total = cCount + ncCount;
+                const rate = total > 0 ? Math.round((cCount / total) * 100) : 100;
+
+                await db.inspections.add({
+                    date: toShamsi(rawDate),
+                    inspector: document.getElementById('inspectorName').value.trim(),
+                    equipmentCode: document.getElementById('equipmentCode').value.trim().toUpperCase(),
+                    location: document.getElementById('location').value.trim(),
+                    checklistType: key,
+                    checklistName: data.title,
+                    compliantCount: cCount,
+                    nonCompliantCount: ncCount,
+                    naCount: naCount,
+                    complianceRate: rate,
+                    issues: issues.join(' | ')
+                });
+
+                document.getElementById('inspectionForm').reset();
+                document.getElementById('inspectionForm').classList.add('hidden');
+                document.getElementById('checklistSelect').value = '';
+                alert('✅ بازرسی با موفقیت ثبت شد.');
+                await loadRecords();
+            });
+
+            document.getElementById('exportExcelBtn').addEventListener('click', async () => {
+                const list = await db.inspections.toArray();
+                if (!list.length) return alert('اطلاعاتی برای خروجی وجود ندارد.');
+                const ws = XLSX.utils.json_to_sheet(list);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Inspections");
+                XLSX.writeFile(wb, "HSE_Report.xlsx");
+            });
+
+            document.getElementById('clearDataBtn').addEventListener('click', async () => {
+                if (confirm('آیا کل اطلاعات حذف شود؟')) {
+                    await db.inspections.clear();
+                    await loadRecords();
+                }
+            });
+
+            await loadRecords();
+        });
+
+        async function loadRecords() {
+            const list = await db.inspections.toArray();
+            document.getElementById('kpiTotal').textContent = list.length;
+
+            if (!list.length) {
+                document.getElementById('kpiCompliance').textContent = '0%';
+                document.getElementById('kpiNonConform').textContent = '0';
+                document.getElementById('kpiEquipments').textContent = '0';
+                document.getElementById('historyTableBody').innerHTML = '<tr><td colspan="9" class="p-4 text-center text-slate-400">داده‌ای ثبت نشده است.</td></tr>';
+                renderCharts(0, 0, {});
+                return;
+            }
+
+            let sumRate = 0, totalNC = 0, totalC = 0;
+            const equips = new Set();
+            const categories = {};
+
+            list.forEach(r => {
+                sumRate += r.complianceRate;
+                totalNC += r.nonCompliantCount;
+                totalC += r.compliantCount;
+                equips.add(r.equipmentCode);
+                const name = r.checklistName.split(' ')[1] || 'سایر';
+                categories[name] = (categories[name] || 0) + r.nonCompliantCount;
+            });
+
+            document.getElementById('kpiCompliance').textContent = Math.round(sumRate / list.length) + '%';
+            document.getElementById('kpiNonConform').textContent = totalNC;
+            document.getElementById('kpiEquipments').textContent = equips.size;
+
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
+            [...list].reverse().forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-slate-50';
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-700">${row.date}</td>
+                    <td class="p-3 font-bold text-blue-700">${row.equipmentCode}</td>
+                    <td class="p-3 text-slate-600 truncate max-w-[140px]">${row.checklistName}</td>
+                    <td class="p-3 text-slate-600">${row.location}</td>
+                    <td class="p-3 text-slate-600">${row.inspector}</td>
+                    <td class="p-3 text-center text-emerald-600 font-bold">${row.compliantCount}</td>
+                    <td class="p-3 text-center text-rose-600 font-bold">${row.nonCompliantCount}</td>
+                    <td class="p-3 text-center font-bold">${row.complianceRate}%</td>
+                    <td class="p-3 text-center"><button onclick="removeRecord(${row.id})" class="text-rose-500 font-bold">حذف</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            renderCharts(totalC, totalNC, categories);
+        }
+
+        function renderCharts(c, nc, catData) {
+            const ctx1 = document.getElementById('complianceChart').getContext('2d');
+            if (pieChart) pieChart.destroy();
+            pieChart = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['منطبق', 'عدم انطباق'],
+                    datasets: [{ data: [c, nc], backgroundColor: ['#10b981', '#f43f5e'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctx2 = document.getElementById('categoryChart').getContext('2d');
+            if (barChart) barChart.destroy();
+            barChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(catData),
+                    datasets: [{ label: 'عدم انطباق', data: Object.values(catData), backgroundColor: '#6366f1' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        window.removeRecord = async function(id) {
+            if (confirm('حذف شود؟')) {
+                await db.inspections.delete(id);
+                await loadRecords();
+            }
+        };
+    </script>
 </body>
 </html>
