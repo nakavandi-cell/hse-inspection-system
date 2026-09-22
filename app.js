@@ -1,352 +1,260 @@
-// ۱. راه‌اندازی دیتابیس Dexie
-const db = new Dexie('HSE_Inspection_System');
+// --- ۱. پایگاه داده Dexie ---
+const db = new Dexie('HSEInspectionDB');
 db.version(1).stores({
-    inspections: '++id, type, date, location, inspector, safeCount, unsafeCount, naCount, details'
+  inspections: '++id, checklistId, checklistTitle, category, date, inspector, unitCode, equipmentCode, location, overallStatus, createdAt'
 });
 
-// ۲. بانک سوالات استاندارد هر چک‌لیست
-const standardChecklists = {
-    electrical: {
-        title: "چک‌لیست ایمنی برق و تابلوها (مطابق استاندارد OSHA 1910.303)",
-        items: [
-            "عدم وجود سیم، کابل لخت و فرسوده در مسیر تردد و خطوط تولید",
-            "بسته و قفل بودن درب تابلوهای برق اصلی و فرعی",
-            "نصب برچسب‌های هشدار خطر برق‌گرفتگی روی تابلوها",
-            "صحت عملکرد کلیدهای محافظ جان (RCD / نشتی جریان)",
-            "وجود و اتصال صحیح کابل سیستم ارتینگ به تجهیزات و تابلو",
-            "رعایت حریم ایمنی اطراف تابلوهای برق (حداقل ۹۰ سانتی‌متر عدم چیدمان)",
-            "استفاده از تجهیزات ضد جرقه (Explosion Proof) در محیط‌های مستعد گاز/غبار",
-            "کالیبراسیون و بررسی دوره‌ای بار مصرفی فیدرها و کابل‌ها"
-        ]
-    },
-    firebox: {
-        title: "چک‌لیست جعبه‌های آتش‌نشانی - فایرباکس (مطابق NFPA 14/25)",
-        items: [
-            "دسترسی آزاد و عدم چیدمان بار یا مانع در مقابل جعبه (شعاع ۱ متر)",
-            "سالم بودن درب، قفل، لولا و شیشه جعبه آتش‌نشانی",
-            "سالم بودن قرقره و باز شدن آسان و روان شیلنگ",
-            "عدم پوسیدگی، سوراخ بودن یا فرسودگی شیلنگ (برزنتی / هوزریلی)",
-            "سالم بودن نازل (سرلول)، اتصال محکم و کارکرد اهرم پاشش (مه‌پاش/جت)",
-            "عدم نشتی آب از شیر فلکه (کوپلینگ)، اورینگ و اتصالات",
-            "خوانا بودن شماره‌گذاری جعبه و وجود علائم راهنمای شب‌نما",
-            "بررسی فشار هیدرواستاتیک آب داخل شبکه اطفاء"
-        ]
-    },
-    extinguisher: {
-        title: "چک‌لیست کپسول‌های آتش‌نشانی قابل‌حمل (مطابق NFPA 10)",
-        items: [
-            "قرار داشتن عقربه مانومتر (گیج فشار) در محدوده سبز رنگ",
-            "وجود پین ضامن و سلامت پلمپ سربی / پلاستیکی کپسول",
-            "عدم فرسودگی، ترک‌خوردگی یا گرفتگی شیپوره و شیلنگ خروجی",
-            "نصب بودن کپسول در ارتفاع استاندارد (۱۰ الی ۱۵۰ سانتی‌متر از کف)",
-            "دارا بودن کارت بازرسی ماهانه دارای امضاء و تاریخ معتبر",
-            "عدم زنگ‌زدگی، فرورفتگی، سوختگی یا صدمه فیزیکی روی سیلندر",
-            "عدم انسداد مسیر دسترسی به کپسول و وجود تابلوی راهنما در بالا",
-            "تطابق نوع خاموش‌کننده با نوع خطرات حریق احتمالی محل (A, B, C, D, K)"
-        ]
-    },
-    kitchen: {
-        title: "چک‌لیست بهداشت و ایمنی آشپزخانه و غذاخوری (مطابق استانداردهای بهداشت حرفه‌ای)",
-        items: [
-            "دارا بودن کارت بهداشت و سلامت معتبر برای کلیه پرسنل خدمات و طبخ",
-            "استفاده پرسنل از کلاه، روپوش، دستکش و کفش ایمنی ضدلغزش مناسب",
-            "کارکرد صحیح و مکش استاندارد هودهای تهویه صنعتی بالای دیگ‌ها و کباب‌پز",
-            "وجود کپسول اطفای حریق کلاس K (مخصوص روغن‌های خوراکی) و پتو نسوز",
-            "سلامت شیلنگ‌های گاز، عدم استفاده از رابط غیراستاندارد و وجود بست فلزی",
-            "تفکیک و درپوش‌دار بودن سطل‌های زباله و تخلیه به موقع آن‌ها",
-            "نظافت مداوم سطوح، ترالی‌ها، چربی‌زدایی دیوارها و ضدعفونی تخته‌های گوشت",
-            "کنترل دمای استاندارد سردخانه‌ها، یخچال‌ها و ثبت در چک‌لیست حرارتی"
-        ]
-    }
-};
-
-let currentTab = 'dashboard';
-let charts = {};
-
-// ۳. جابجایی بین تب‌ها
-function switchTab(tab) {
-    currentTab = tab;
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab'));
-    const activeBtn = document.getElementById(`tab-${tab}`);
-    if (activeBtn) activeBtn.classList.add('active-tab');
-
-    const formSec = document.getElementById('form-container');
-    const dashSec = document.getElementById('dashboard-view');
-    const histSec = document.getElementById('history-view');
-
-    formSec.classList.add('hidden');
-    dashSec.classList.add('hidden');
-    histSec.classList.add('hidden');
-
-    if (tab === 'dashboard') {
-        dashSec.classList.remove('hidden');
-        renderDashboard();
-    } else if (tab === 'history') {
-        histSec.classList.remove('hidden');
-        renderHistory();
-    } else {
-        formSec.classList.remove('hidden');
-        loadChecklistForm(tab);
-    }
-}
-
-// ۴. بارگذاری فرم چک‌لیست انتخابی
-function loadChecklistForm(type) {
-    const data = standardChecklists[type];
-    document.getElementById('checklist-title').innerText = data.title;
-    
-    // تنظیم تاریخ جاری شمسی به کمک فرمتر داخلی جاوااسکریپت
-    const today = new Intl.DateTimeFormat('fa-IR').format(new Date());
-    document.getElementById('insp-date').value = today;
-
-    const container = document.getElementById('checklist-questions');
-    container.innerHTML = '';
-
-    data.items.forEach((item, index) => {
-        const row = document.createElement('div');
-        row.className = "p-3 bg-slate-50 border rounded-lg hover:bg-slate-100 transition";
-        row.innerHTML = `
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <span class="text-sm font-semibold text-slate-700">${index + 1}. ${item}</span>
-                <div class="flex items-center gap-4 text-xs font-bold">
-                    <label class="flex items-center gap-1 cursor-pointer text-emerald-600">
-                        <input type="radio" name="item_${index}" value="safe" checked class="w-4 h-4 accent-emerald-600">
-                        ایمن
-                    </label>
-                    <label class="flex items-center gap-1 cursor-pointer text-rose-600">
-                        <input type="radio" name="item_${index}" value="unsafe" class="w-4 h-4 accent-rose-600">
-                        ناایمن
-                    </label>
-                    <label class="flex items-center gap-1 cursor-pointer text-slate-500">
-                        <input type="radio" name="item_${index}" value="na" class="w-4 h-4 accent-slate-500">
-                        نامربوط
-                    </label>
-                </div>
-            </div>
-            <input type="text" id="desc_${index}" placeholder="توضیح یا اقدام اصلاحی (اختیاری)" class="mt-2 w-full p-1.5 border rounded text-xs bg-white text-slate-600">
-        `;
-        container.appendChild(row);
-    });
-}
-
-// ۵. ذخیره‌سازی بازرسی در Dexie
-async function saveInspection() {
-    const inspector = document.getElementById('inspector-name').value.trim();
-    const location = document.getElementById('insp-location').value.trim();
-    const date = document.getElementById('insp-date').value;
-
-    if (!inspector || !location) {
-        alert("لطفاً نام بازرس و محل استقرار را وارد کنید.");
-        return;
-    }
-
-    const items = standardChecklists[currentTab].items;
-    let safeCount = 0;
-    let unsafeCount = 0;
-    let naCount = 0;
-    let details = [];
-
-    items.forEach((item, index) => {
-        const status = document.querySelector(`input[name="item_${index}"]:checked`).value;
-        const note = document.getElementById(`desc_${index}`).value;
-        if (status === 'safe') safeCount++;
-        else if (status === 'unsafe') unsafeCount++;
-        else naCount++;
-
-        details.push({ item, status, note });
-    });
-
-    await db.inspections.add({
-        type: currentTab,
-        date,
-        inspector,
-        location,
-        safeCount,
-        unsafeCount,
-        naCount,
-        details
-    });
-
-    alert("✅ بازرسی با موفقیت ثبت شد.");
-    switchTab('dashboard');
-}
-
-// ۶. رندر داشبورد و نمودارها
-async function renderDashboard() {
+const HSE_DB = {
+  async saveInspection(data) {
+    data.createdAt = new Date().toISOString();
+    return await db.inspections.add(data);
+  },
+  async getAllInspections() {
+    return await db.inspections.orderBy('id').reverse().toArray();
+  },
+  async deleteInspection(id) {
+    return await db.inspections.delete(Number(id));
+  },
+  async getSummaryStats() {
     const all = await db.inspections.toArray();
-    document.getElementById('total-inspections').innerText = all.length;
-
-    let totalSafe = 0, totalUnsafe = 0, totalNa = 0;
-    let categoryUnsafe = { electrical: 0, firebox: 0, extinguisher: 0, kitchen: 0 };
-
-    all.forEach(record => {
-        totalSafe += record.safeCount;
-        totalUnsafe += record.unsafeCount;
-        totalNa += record.naCount;
-        if (categoryUnsafe[record.type] !== undefined) {
-            categoryUnsafe[record.type] += record.unsafeCount;
-        }
+    let compliant = 0, warning = 0, critical = 0;
+    all.forEach(item => {
+      if (item.overallStatus === 'compliant') compliant++;
+      else if (item.overallStatus === 'warning') warning++;
+      else if (item.overallStatus === 'critical') critical++;
     });
-
-    document.getElementById('total-safe').innerText = totalSafe;
-    document.getElementById('total-unsafe').innerText = totalUnsafe;
-
-    const totalEvaluated = totalSafe + totalUnsafe;
-    const rate = totalEvaluated > 0 ? Math.round((totalSafe / totalEvaluated) * 100) : 0;
-    document.getElementById('compliance-rate').innerText = `${rate}%`;
-
-    // رسم نمودار میله‌ای عدم انطباق‌ها
-    if (charts.bar) charts.bar.destroy();
-    const ctxBar = document.getElementById('categoryChart').getContext('2d');
-    charts.bar = new Chart(ctxBar, {
-        type: 'bar',
-        data: {
-            labels: ['ایمنی برق', 'فایرباکس', 'کپسول‌ها', 'آشپزخانه'],
-            datasets: [{
-                label: 'تعداد عدم‌انطباق (خطر)',
-                data: [
-                    categoryUnsafe.electrical,
-                    categoryUnsafe.firebox,
-                    categoryUnsafe.extinguisher,
-                    categoryUnsafe.kitchen
-                ],
-                backgroundColor: ['#f87171', '#fb923c', '#fbbf24', '#38bdf8']
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-
-    // رسم نمودار دایره‌ای نسبت کل وضعیت‌ها
-    if (charts.pie) charts.pie.destroy();
-    const ctxPie = document.getElementById('ratioChart').getContext('2d');
-    charts.pie = new Chart(ctxPie, {
-        type: 'doughnut',
-        data: {
-            labels: ['ایمن', 'ناایمن', 'نامربوط'],
-            datasets: [{
-                data: [totalSafe, totalUnsafe, totalNa],
-                backgroundColor: ['#10b981', '#ef4444', '#94a3b8']
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-}
-
-// ۷. نمایش تاریخچه سوابق
-async function renderHistory() {
-    const list = await db.inspections.toArray();
-    const tbody = document.getElementById('history-table-body');
-    tbody.innerHTML = '';
-
-    const typeTitles = {
-        electrical: '⚡ برق',
-        firebox: '🚒 فایرباکس',
-        extinguisher: '🧯 کپسول',
-        kitchen: '🍽️ آشپزخانه'
+    return {
+      total: all.length,
+      compliant,
+      warning,
+      critical,
+      kitchenCount: all.filter(i => i.category === 'kitchen').length,
+      electricalCount: all.filter(i => i.category === 'electrical').length
     };
-
-    list.reverse().forEach((item, index) => {
-        const tr = document.createElement('tr');
-        tr.className = "border-b hover:bg-slate-50";
-        tr.innerHTML = `
-            <td class="p-3">${index + 1}</td>
-            <td class="p-3 font-semibold text-teal-800">${typeTitles[item.type] || item.type}</td>
-            <td class="p-3">${item.location}</td>
-            <td class="p-3 text-xs text-slate-500">${item.date}</td>
-            <td class="p-3 text-emerald-600 font-bold">${item.safeCount}</td>
-            <td class="p-3 text-rose-600 font-bold">${item.unsafeCount}</td>
-            <td class="p-3">
-                <button onclick="deleteRecord(${item.id})" class="text-rose-500 hover:text-rose-700 text-xs">حذف</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-// ۸. حذف رکورد
-async function deleteRecord(id) {
-    if (confirm("آیا از حذف این رکورد اطمینان دارید؟")) {
-        await db.inspections.delete(id);
-        renderHistory();
-    }
-}
-
-// ۹. پاکسازی کل دیتابیس
-async function clearAllData() {
-    if (confirm("آیا می‌خواهید تمام سوابق حذف شوند؟ این عملیات برگشت‌پذیر نیست.")) {
-        await db.inspections.clear();
-        renderHistory();
-        renderDashboard();
-    }
-}
-
-// ۱۰. خروجی اکسل هوشمند دوحالته (اندروید Native Share + دانلود مستقیم ویندوز)
-async function exportToExcel() {
-    const filter = document.getElementById('export-filter').value;
-    let data = await db.inspections.toArray();
-
-    if (filter !== 'all') {
-        data = data.filter(d => d.type === filter);
-    }
-
-    if (data.length === 0) {
-        alert("هیچ رکوردی برای استخراج اکسل یافت نشد.");
-        return;
-    }
-
-    // ساخت آرایه دیتای فلت برای شیت اکسل با هدرهای فارسی
-    const rows = [];
-    data.forEach(rec => {
-        rec.details.forEach((det, idx) => {
-            rows.push({
-                "کد بازرسی": rec.id,
-                "حوزه بازرسی": rec.type,
-                "تاریخ": rec.date,
-                "محل استقرار": rec.location,
-                "نام بازرس": rec.inspector,
-                "ردیف آیتم": idx + 1,
-                "شرح استاندارد": det.item,
-                "وضعیت": det.status === 'safe' ? 'ایمن' : (det.status === 'unsafe' ? 'ناایمن' : 'نامربوط'),
-                "اقدام اصلاحی / توضیحات": det.note || '-'
-            });
-        });
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "HSE_Reports");
-
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const fileName = `گزارش_جامع_HSE_${new Date().toISOString().slice(0,10)}.xlsx`;
-
-    // مکانیزم اشتراک اندروید در صورت پشتیبانی
-    const file = new File([blob], fileName, { type: blob.type });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-            await navigator.share({
-                files: [file],
-                title: 'گزارش بازرسی HSE',
-                text: 'فایل خروجی اکسل بازرسی‌های دوره‌ای HSE'
-            });
-            return;
-        } catch (e) {
-            console.log("اشتراک لغو شد یا با خطا مواجه شد، استفاده از دانلود مستقیم.");
-        }
-    }
-
-    // دانلود استاندارد در مرورگر ویندوز
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-// بارگذاری اولیه
-window.onload = () => {
-    switchTab('dashboard');
+  }
 };
+
+// --- ۲. داده‌های ۵ چک‌لیست تخصصی ---
+const CHECKLIST_CONFIGS = {
+  kitchen: {
+    id: "kitchen",
+    title: "بازرسی و ممیزی بهداشت و ایمنی آشپزخانه و غذاخوری",
+    badge: "بهداشت محیط",
+    category: "kitchen",
+    sections: [
+      {
+        title: "بخش اول: بهداشت فردی پرسنل",
+        items: [
+          { id: "k1", text: "آیا پرسنل دارای کارت بهداشت معتبر و گواهی دوره آموزش بهداشت هستند؟" },
+          { id: "k2", text: "آیا پرسنل از لباس کار تمیز، کلاه، ماسک، روپوش روشن و دستکش یکبار مصرف استفاده می‌کنند؟" },
+          { id: "k3", text: "آیا بهداشت فردی (کوتاه بودن ناخن‌ها، نداشتن زیورآلات حین کار، عدم وجود زخم باز در دست) رعایت می‌شود؟" }
+        ]
+      },
+      {
+        title: "بخش دوم: نگهداری مواد غذایی، انبار و سردخانه‌ها",
+        items: [
+          { id: "k4", text: "آیا مواد خام و پخته به‌طور کامل مجزا از یکدیگر نگهداری می‌شوند (جلوگیری از آلودگی متقاطع / Cross-Contamination)؟" },
+          { id: "k5", text: "آیا دمای سردخانه‌ها، یخچال‌ها و فریزرها مناسب بوده و لاگ ثبت روزانه دما تکمیل می‌شود؟" },
+          { id: "k6", text: "آیا تاریخ تولید و انقضای مواد غذایی کنترل شده و سیستم FIFO رعایت می‌شود؟" },
+          { id: "k7", text: "آیا مواد غذایی روی پالت‌های بهداشتی و با فاصله استاندارد از کف و دیوار (حداقل ۱۵ سانتی‌متر) چیده شده‌اند؟" }
+        ]
+      },
+      {
+        title: "بخش سوم: شستشو، ضدعفونی و مدیریت پسماند",
+        items: [
+          { id: "k8", text: "آیا فرآیند انگل‌زدایی و شستشوی ۴ مرحله‌ای سبزیجات و میوه‌ها به طور دقیق انجام می‌شود؟" },
+          { id: "k9", text: "آیا سینک‌های شستشوی ظروف، مواد پروتئینی و سبزیجات به صورت مجزا تفکیک شده‌اند؟" },
+          { id: "k10", text: "آیا سطل‌های زباله از نوع پدالی، دارای کیسه زباله سالم و دربسته بوده و به موقع تخلیه می‌شوند؟" }
+        ]
+      },
+      {
+        title: "بخش چهارم: ایمنی تجهیزات، تأسیسات و شرایط محیطی",
+        items: [
+          { id: "k11", text: "آیا کف، دیوارها، سقف و کانال‌های تهویه تمیز، بدون ترک‌خوردگی، روغن‌گرفتگی و شستشوپذیر هستند؟" },
+          { id: "k12", text: "آیا توری‌های ضد حشرات روی پنجره‌ها و هواکش‌ها سالم و نصب شده‌اند و اثری از حشرات یا جوندگان وجود ندارد؟" },
+          { id: "k13", text: "آیا تجهیزات برقی، سیم‌کشی‌ها، کلید/پریزهای ضدآب و سیستم اتصال زمین (ارت) ایمن غذایی روی پالت‌های بهداشتی و با فاصله استاندارد از کف و دیوار (حداقل ۱۵ سانتی‌متر) چیده شده‌اند؟" }
+        ]
+      },
+      {
+        title: "بخش سوم: شستشو، ضدعفونی و مدیریت پسماند",
+        items: [
+          { id: "k8", text: "آیا فرآیند انگل‌زدایی و شستشوی ۴ مرحله‌ای سبزیجات و میوه‌ها به طور دقیق انجام می‌شود؟" },
+          { id: "k9", text: "آیا سینک‌های شستشوی ظروف، مواد پروتئینی و سبزیجات به صورت مجزا تفکیک شده‌اند؟" },
+          { id: "k10", text: "آیا سطل‌های زباله از نوع پدالی، دارای کیسه زباله سالم و دربسته بوده و به موقع تخلیه می‌شوند؟" }
+        ]
+      },
+      {
+        title: "بخش چهارم: ایمنی تجهیزات، تأسیسات و شرایط محیطی",
+        items: [
+          { id: "k11", text: "آیا کف، دیوارها، سقف و کانال‌های تهویه تمیز، بدون ترک‌خوردگی، روغن‌گرفتگی و شستشوپذیر هستند؟" },
+          { id: "k12", text: "آیا توری‌های ضد حشرات روی پنجره‌ها و هواکش‌ها سالم و نصب شده‌اند و اثری از حشرات یا جوندگان وجود ندارد؟" },
+          { id: "k13", text: "آیا تجهیزات برقی، سیم‌کشی‌ها، کلید/پریزهای ضدآب و سیستم اتصال زمین (ارت) ایمن و بدون نقص هستند؟" },
+          { id: "k14", text: "آیا سیستم‌های گازسوز، اتصالات، شیلنگ‌ها، بست‌ها و شیرهای قطع‌کن اضطراری گاز ایمن و فاقد نشتی هستند؟" },
+          { id: "k15", text: "آیا هودها و فیلترهای چربی‌گیر تمیز بوده و سیستم تهویه به خوبی بخارات و حرارت را خارج می‌کند؟" }
+        ]
+      },
+      {
+        title: "بخش پنجم: ایمنی، پیشگیری از حریق و شرایط اضطراری",
+        items:      },
+      {
+        title: "تجهیزات حفاظتی و ترموگرافی",
+        items: [
+          { id: "ep4", text: "آیا کلیدهای محافظ جان (RCD/RCCB) نصب شده و عملکرد آنها تست شده است؟" },
+          { id: "ep5", text: "آیا شینه‌ها و ترمینال‌ها فاقد شل‌بودگی، تغییر رنگ یا آثار سوختگی هستند؟" },
+          { id: "ep6", text: "آیا بدنه فلزی تابلو به شبکه ارتینگ همبندی شده است؟" },
+          { id: "ep7", text: "آیا لاستیک فرش عایق استاندارد در مقابل تابلو پهن شده است؟" }
+        ]
+      }
+    ]
+  },
+  elec_substation: {
+    id: "elec_substation",
+    title: "چک‌لیست پست‌های توزیع و ترانسفورماتور",
+    badge: "فشار متوسط/قوی",
+    category: "electrical",
+    sections: [
+      {
+        title: "ساختمان و دسترسی",
+        items: [
+          { id: "es1", text: "آیا درب‌های پست مجهز به قفل ایمن، توری ضد جوندگان و علائم هشدار هستند؟" },
+          { id: "es2", text: "آیا سیستم تهویه و دمای محیط پست ترانسفورماتور مناسب است؟" },
+          { id: "es3", text: "آیا روشنایی عادی و اضطراری محوطه پست سالم است؟" }
+        ]
+      },
+      {
+        title: "ترانسفورماتور و تجهیزات فشار متوسط",
+        items: [
+          { id: "es4", text: "آیا سطح روغن ترانس، رنگ سیلیکاژل و گیج‌های دما/فشار در محدوده مجاز هستند؟" },
+          { id: "es5", text: "آیا ترانسفورماتور فاقد نشتی روغن یا صدای غیرعادی (زوزه شدید) است؟" },
+          { id: "es6", text: "آیا حوضچه جمع‌آوری روغن ترانس سالم، تمیز و دارای قلوه‌سنگ است؟" },
+          { id: "es7", text: "آیا تجهیزات ایمنی فردی عایق (چوب استیک، دستکش ولتاژ بالا) موجود و تست شده هستند؟" }
+        ]
+      }
+    ]
+  },
+  elec_portable: {
+    id: "elec_portable",
+    title: "چک‌لیست ابزارها و تجهیزات برقی پرتابل",
+    badge: "تجهیزات متحرک",
+    category: "electrical",
+    sections: [
+      {
+        title: "کابل و اتصالات",
+        items: [
+          { id: "pt1", text: "آیا کابل تغذیه ابزار برقی فاقد چسب‌خوردگی، لهیدگی و لخت‌شدگی عایق است؟" },
+          { id: "pt2", text: "آیا دوشاخه برق دستگاه صنعتی و سالم بوده و از اتصال مستقیم سرسیم به پریز خودداری شده است؟" },
+          { id: "pt3", text: "آیا گلند و مهار کشش فیزیکی کابل در ورودی دستگاه سالم است؟" }
+        ]
+      },
+      {
+        title: "حفاظت‌ها و ایمنی مکانیکی",
+        items: [
+          { id: "pt4", text: "آیا دستگاه دارای عایق دوبل یا اتصال ارت بدنه است؟" },
+          { id: "pt5", text: "آیا کلید قطع اضطراری یا سوئیچ Dead-man دستگاه به درستی کار می‌کند؟" },
+          { id: "pt6", text: "آیا حفاظ‌های مکانیکی (گارد سنگ فرز، قاب اره) نصب و محکم هستند؟" }
+        ]
+      }
+    ]
+  },
+  elec_earthing: {
+    id: "elec_earthing",
+    title: "چک‌لیست ایمنی عمومی و ارتینگ محیطی",
+    badge: "حفاظت عمومی",
+    category: "electrical",
+    sections: [
+      {
+        title: "چاه‌ها و شبکه‌های ارتینگ",
+        items: [
+          { id: "ge1", text: "آیا حوضچه‌های تست ارت در دسترس، تمیز و دارای پلاک شناسایی هستند؟" },
+          { id: "ge2", text: "آیا مقاومت چاه‌های ارت زیر حد مجاز استاندارد (کمتر از ۲ اهم) تایید شده است؟" },
+          { id: "ge3", text: "آیا همبندی سیستم ارت با سازه‌های فلزی و لوله‌ها برقرار است؟" }
+        ]
+      },
+      {
+        title: "تأسیسات محیطی و صاعقه‌گیر",
+        items: [
+          { id: "ge4", text: "آیا کابل‌ها روی سینی کابل استاندارد مهار شده و فاقد آویزان بودن هستند؟" },
+          { id: "ge5", text: "آیا کلید و پریزهای محیط‌های باز و مرطوب از نوع ضدآب (IP44 به بالا) هستند؟" },
+          { id: "ge6", text: "آیا سیستم صاعقه‌گیر و هادی‌های نزولی متصل به زمین سالم هستند؟" }
+        ]
+      }
+    ]
+  }
+};
+
+// --- ۳. متغیرها و شروع کار ---
+let currentActiveChecklist = 'kitchen';
+let statusChartInstance = null;
+let categoryChartInstance = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  const today = new Date().toISOString().split('T')[0];
+  const dateInput = document.getElementById('insp_date');
+  if (dateInput) dateInput.value = today;
+
+  loadChecklistForm('kitchen');
+  updateDashboardView();
+});
+
+// ناوبری تب‌ها
+function switchMainTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.classList.remove('bg-sky-600', 'text-white');
+    btn.classList.add('text-slate-300');
+  });
+
+  const activeContent = document.getElementById(`tab-${tabName}`);
+  if (activeContent) activeContent.classList.remove('hidden');
+
+  const activeBtn = document.getElementById(`nav-btn-${tabName}`);
+  if (activeBtn) {
+    activeBtn.classList.add('bg-sky-600', 'text-white');
+    activeBtn.classList.remove('text-slate-300');
+  }
+
+  if (tabName === 'records') loadRecordsTable();
+  if (tabName === 'dashboard') updateDashboardView();
+}
+
+// انتخاب چک‌لیست
+function selectChecklist(key) {
+  currentActiveChecklist = key;
+  document.querySelectorAll('.checklist-selector-btn').forEach(btn => {
+    btn.classList.remove('border-sky-500', 'bg-slate-800');
+    btn.classList.add('border-slate-800', 'bg-slate-900');
+  });
+  const selectedBtn = document.getElementById(`btn-select-${key}`);
+  if (selectedBtn) {
+    selectedBtn.classList.remove('border-slate-800', 'bg-slate-900');
+    selectedBtn.classList.add('border-sky-500', 'bg-slate-800');
+  }
+  loadChecklistForm(key);
+}
+
+// رندر داینامیک سوالات
+function loadChecklistForm(key) {
+  const config = CHECKLIST_CONFIGS[key];
+  if (!config) return;
+
+  document.getElementById('formTitle').innerText = config.title;
+  document.getElementById('formBadge').innerText = config.badge;
+
+  const container = document.getElementById('checklistItemsContainer');
+  container.innerHTML = '';
+
+  config.sections.forEach((sec, sIndex) => {
+    const secEl = document.createElement('div');
+    secEl.className = 'bg-slate-900 rounded-2xl p-4 md:p-5 border border-slate-700/60 shadow-lg';
+    
+    let itemsHtml = sec.items.map((item, iIndex) => `
+      <div class="py-4 border-b border-slate-700/40 last:border-0">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+          <p class="text-sm md:text-base text-slate-100 font-medium leading-relaxed">
+            <span class="inline-block w-6 h-6 rounded-full bg-slate-700 text-sky-400 text-xs text-center leading-6 font-bold ml-2">${sIndex + 1}.${iIndex + 1}</span>
+            ${item.text}
+          </p>
+          <div class="flex items-center gap-2 self-end md:self-center shrink-0">
+            <label class="cursor-pointer">
+              <input type="radio" name="status_${item.id}" value="yes" class="peer sr-only radio-custom" checked>
