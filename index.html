@@ -4,23 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سامانه جامع بازرسی و ممیزی HSE</title>
-    <!-- استایل‌ها و ابزارها -->
+    <!-- ابزارها و استایل‌ها -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
-    
-    <!-- کتابخانه تقویم شمسی اختصاصی ایران (jQuery + Persian Datepicker) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css"/>
-    <script src="https://unpkg.com/persian-date@1.1.0/dist/persian-date.min.js"></script>
-    <script src="https://unpkg.com/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
 
     <style>
         body { font-family: 'Vazirmatn', sans-serif; }
-        .pwt-btn-calendar { display: none !important; }
-        .datepicker-plot-area { font-family: 'Vazirmatn', sans-serif !important; border-radius: 12px; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen p-4 md:p-8">
@@ -85,7 +77,7 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                 <div>
                     <label class="block font-medium mb-1 text-slate-600">تاریخ بازرسی (شمسی):</label>
-                    <input type="text" id="inspDateShamsi" required readonly class="w-full p-2.5 bg-blue-50 border border-blue-300 rounded-lg font-bold text-blue-900 cursor-pointer text-center" placeholder="۱۴۰۳/۰۱/۰۱">
+                    <input type="text" id="inspDateShamsi" required class="w-full p-2.5 bg-blue-50 border border-blue-300 rounded-lg font-bold text-blue-900 text-center" placeholder="۱۴۰۳/۰۷/۰۱">
                 </div>
                 <div>
                     <label class="block font-medium mb-1 text-slate-600">نام بازرس:</label>
@@ -125,7 +117,7 @@
             </div>
         </div>
 
-        <!-- جدول سوابق با تاریخ شمسی -->
+        <!-- جدول سوابق -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
                 <h4 class="text-sm font-bold text-slate-700">📋 سوابق بازرسی‌های ثبت‌شده (تاریخ شمسی)</h4>
@@ -153,11 +145,24 @@
     </div>
 
     <script>
-        // پایگاه داده
+        // دیتابیس لوکال
         const db = new Dexie('HSE_Inspection_DB');
         db.version(1).stores({
             inspections: '++id, date, inspector, equipmentCode, location, checklistType, checklistName, compliantCount, nonCompliantCount, naCount, complianceRate, issues'
         });
+
+        // تابع تولید خودکار تاریخ امروز شمسی
+        function getTodayShamsi() {
+            try {
+                return new Intl.DateTimeFormat('fa-IR-u-nu-latn', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                }).format(new Date());
+            } catch (e) {
+                return "1403/07/01";
+            }
+        }
 
         // بانک چک‌لیست‌ها
         const CHECKLIST_DEFINITIONS = {
@@ -246,82 +251,76 @@
         let pieChart = null;
         let barChart = null;
 
-        $(document).ready(function() {
-            // فعال‌سازی تقویم شمسی روی فیلد تاریخ
-            $("#inspDateShamsi").persianDatepicker({
-                format: 'YYYY/MM/DD',
-                initialValue: true,
-                autoClose: true,
-                calendar: {
-                    persian: {
-                        locale: 'fa'
-                    }
-                }
-            });
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('inspDateShamsi');
+            if (dateInput) {
+                dateInput.value = getTodayShamsi();
+            }
 
-            // رویداد تغییر چک‌لیست
-            $('#checklistSelect').on('change', function() {
-                const key = $(this).val();
-                const form = $('#inspectionForm');
-                const container = $('#itemsContainer');
-                const titleEl = $('#currentFormTitle');
+            const selectEl = document.getElementById('checklistSelect');
+            const formEl = document.getElementById('inspectionForm');
+            const itemsContainer = document.getElementById('itemsContainer');
+            const formTitle = document.getElementById('currentFormTitle');
 
+            // انتخاب چک‌لیست
+            selectEl.addEventListener('change', (e) => {
+                const key = e.target.value;
                 if (!key || !CHECKLIST_DEFINITIONS[key]) {
-                    form.addClass('hidden');
-                    container.empty();
+                    formEl.classList.add('hidden');
+                    itemsContainer.innerHTML = '';
                     return;
                 }
 
                 const data = CHECKLIST_DEFINITIONS[key];
-                titleEl.text(data.title);
-                container.empty();
+                formTitle.textContent = data.title;
+                itemsContainer.innerHTML = '';
 
                 data.items.forEach((item, index) => {
-                    const row = `
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2">
-                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                                <span class="font-medium text-slate-700 leading-relaxed">${index + 1}. ${item}</span>
-                                <div class="flex items-center gap-3 shrink-0">
-                                    <label class="inline-flex items-center gap-1 cursor-pointer text-emerald-700">
-                                        <input type="radio" name="item_${index}" value="C" checked>
-                                        <span>انطباق</span>
-                                    </label>
-                                    <label class="inline-flex items-center gap-1 cursor-pointer text-rose-700">
-                                        <input type="radio" name="item_${index}" value="NC">
-                                        <span>عدم‌انطباق</span>
-                                    </label>
-                                    <label class="inline-flex items-center gap-1 cursor-pointer text-slate-600">
-                                        <input type="radio" name="item_${index}" value="NA">
-                                        <span>کاربرد ندارد</span>
-                                    </label>
-                                </div>
+                    const row = document.createElement('div');
+                    row.className = "bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2";
+                    row.innerHTML = `
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                            <span class="font-medium text-slate-700 leading-relaxed">${index + 1}. ${item}</span>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-emerald-700">
+                                    <input type="radio" name="item_${index}" value="C" checked>
+                                    <span>انطباق</span>
+                                </label>
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-rose-700">
+                                    <input type="radio" name="item_${index}" value="NC">
+                                    <span>عدم‌انطباق</span>
+                                </label>
+                                <label class="inline-flex items-center gap-1 cursor-pointer text-slate-600">
+                                    <input type="radio" name="item_${index}" value="NA">
+                                    <span>کاربرد ندارد</span>
+                                </label>
                             </div>
-                            <input type="text" id="action_${index}" placeholder="توضیحات و اقدام اصلاحی در صورت عدم انطباق..." class="w-full p-2 bg-white border border-slate-200 rounded text-xs">
                         </div>
+                        <input type="text" id="action_${index}" placeholder="توضیحات و اقدام اصلاحی در صورت عدم انطباق..." class="w-full p-2 bg-white border border-slate-200 rounded text-xs">
                     `;
-                    container.append(row);
+                    itemsContainer.appendChild(row);
                 });
 
-                form.removeClass('hidden');
+                formEl.classList.remove('hidden');
             });
 
             // ثبت فرم
-            $('#inspectionForm').on('submit', async function(e) {
+            formEl.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const key = $('#checklistSelect').val();
+                const key = selectEl.value;
                 const data = CHECKLIST_DEFINITIONS[key];
-                const shamsiDate = $('#inspDateShamsi').val();
+                const shamsiDate = document.getElementById('inspDateShamsi').value;
 
                 let cCount = 0, ncCount = 0, naCount = 0;
                 let issues = [];
 
                 data.items.forEach((_, idx) => {
-                    const val = $(`input[name="item_${idx}"]:checked`).val();
-                    const action = $(`#action_${idx}`).val().trim();
-                    if (val === 'C') cCount++;
-                    else if (val === 'NC') {
+                    const checkedVal = document.querySelector(`input[name="item_${idx}"]:checked`).value;
+                    const actionVal = document.getElementById(`action_${idx}`).value.trim();
+                    if (checkedVal === 'C') cCount++;
+                    else if (checkedVal === 'NC') {
                         ncCount++;
-                        issues.push(`بند ${idx + 1}: ${action || 'بدون شرح'}`);
+                        issues.push(`بند ${idx + 1}: ${actionVal || 'عدم انطباق بدون شرح'}`);
                     } else naCount++;
                 });
 
@@ -329,10 +328,10 @@
                 const rate = total > 0 ? Math.round((cCount / total) * 100) : 100;
 
                 await db.inspections.add({
-                    date: shamsiDate, // ثبت تاریخ رسمی شمسی
-                    inspector: $('#inspectorName').val().trim(),
-                    equipmentCode: $('#equipmentCode').val().trim().toUpperCase(),
-                    location: $('#location').val().trim(),
+                    date: shamsiDate,
+                    inspector: document.getElementById('inspectorName').value.trim(),
+                    equipmentCode: document.getElementById('equipmentCode').value.trim().toUpperCase(),
+                    location: document.getElementById('location').value.trim(),
                     checklistType: key,
                     checklistName: data.title,
                     compliantCount: cCount,
@@ -342,15 +341,16 @@
                     issues: issues.join(' | ')
                 });
 
-                this.reset();
-                $('#inspectionForm').addClass('hidden');
-                $('#checklistSelect').val('');
-                alert(`✅ بازرسی در تاریخ شمسی (${shamsiDate}) با موفقیت ثبت شد.`);
+                formEl.reset();
+                formEl.classList.add('hidden');
+                selectEl.value = '';
+                dateInput.value = getTodayShamsi();
+                alert(`✅ بازرسی با تاریخ شمسی (${shamsiDate}) با موفقیت ثبت شد.`);
                 await loadRecords();
             });
 
-            // خروجی اکسل با تاریخ شمسی
-            $('#exportExcelBtn').on('click', async function() {
+            // اکسل
+            document.getElementById('exportExcelBtn').addEventListener('click', async () => {
                 const list = await db.inspections.toArray();
                 if (!list.length) return alert('اطلاعاتی برای صدور وجود ندارد.');
                 const exportData = list.map(item => ({
@@ -372,9 +372,9 @@
                 XLSX.writeFile(wb, `HSE_Report_${new Date().getTime()}.xlsx`);
             });
 
-            // پاک‌سازی
-            $('#clearDataBtn').on('click', async function() {
-                if (confirm('کل داده‌ها پاک شوند؟')) {
+            // دکمه پاکسازی
+            document.getElementById('clearDataBtn').addEventListener('click', async () => {
+                if (confirm('آیا مایلید تمام سوابق حذف شوند؟')) {
                     await db.inspections.clear();
                     await loadRecords();
                 }
@@ -383,16 +383,16 @@
             loadRecords();
         });
 
-        // بارگذاری رکوردها
+        // بارگذاری و نمایش جدول و آمارها
         async function loadRecords() {
             const list = await db.inspections.toArray();
-            $('#kpiTotal').text(list.length);
+            document.getElementById('kpiTotal').textContent = list.length;
 
             if (!list.length) {
-                $('#kpiCompliance').text('0%');
-                $('#kpiNonConform').text('0');
-                $('#kpiEquipments').text('0');
-                $('#historyTableBody').html('<tr><td colspan="9" class="p-4 text-center text-slate-400">هنوز رکوردی با تاریخ شمسی ثبت نشده است.</td></tr>');
+                document.getElementById('kpiCompliance').textContent = '0%';
+                document.getElementById('kpiNonConform').textContent = '0';
+                document.getElementById('kpiEquipments').textContent = '0';
+                document.getElementById('historyTableBody').innerHTML = '<tr><td colspan="9" class="p-4 text-center text-slate-400">هنوز بازرسی ثبت نشده است.</td></tr>';
                 renderCharts(0, 0, {});
                 return;
             }
@@ -410,27 +410,27 @@
                 categories[name] = (categories[name] || 0) + r.nonCompliantCount;
             });
 
-            $('#kpiCompliance').text(Math.round(sumRate / list.length) + '%');
-            $('#kpiNonConform').text(totalNC);
-            $('#kpiEquipments').text(equips.size);
+            document.getElementById('kpiCompliance').textContent = Math.round(sumRate / list.length) + '%';
+            document.getElementById('kpiNonConform').textContent = totalNC;
+            document.getElementById('kpiEquipments').textContent = equips.size;
 
-            const tbody = $('#historyTableBody');
-            tbody.empty();
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '';
             [...list].reverse().forEach(row => {
-                const tr = `
-                    <tr class="border-b hover:bg-slate-50 transition">
-                        <td class="p-3 font-bold text-blue-900">${row.date}</td>
-                        <td class="p-3 font-black text-slate-800">${row.equipmentCode}</td>
-                        <td class="p-3 text-slate-600 truncate max-w-[140px]">${row.checklistName}</td>
-                        <td class="p-3 text-slate-600">${row.location}</td>
-                        <td class="p-3 text-slate-600">${row.inspector}</td>
-                        <td class="p-3 text-center text-emerald-600 font-bold">${row.compliantCount}</td>
-                        <td class="p-3 text-center text-rose-600 font-bold">${row.nonCompliantCount}</td>
-                        <td class="p-3 text-center font-bold">${row.complianceRate}%</td>
-                        <td class="p-3 text-center"><button onclick="removeRecord(${row.id})" class="text-rose-500 font-bold hover:text-rose-700">حذف</button></td>
-                    </tr>
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-blue-900">${row.date}</td>
+                    <td class="p-3 font-black text-slate-800">${row.equipmentCode}</td>
+                    <td class="p-3 text-slate-600 truncate max-w-[140px]">${row.checklistName}</td>
+                    <td class="p-3 text-slate-600">${row.location}</td>
+                    <td class="p-3 text-slate-600">${row.inspector}</td>
+                    <td class="p-3 text-center text-emerald-600 font-bold">${row.compliantCount}</td>
+                    <td class="p-3 text-center text-rose-600 font-bold">${row.nonCompliantCount}</td>
+                    <td class="p-3 text-center font-bold">${row.complianceRate}%</td>
+                    <td class="p-3 text-center"><button onclick="removeRecord(${row.id})" class="text-rose-500 font-bold hover:text-rose-700">حذف</button></td>
                 `;
-                tbody.append(tr);
+                tbody.appendChild(tr);
             });
 
             renderCharts(totalC, totalNC, categories);
@@ -441,30 +441,6 @@
             const ctx1 = document.getElementById('complianceChart').getContext('2d');
             if (pieChart) pieChart.destroy();
             pieChart = new Chart(ctx1, {
-                type: 'doughnut',
-                data: {
-                    labels: ['منطبق', 'عدم انطباق'],
-                    datasets: [{ data: [c, nc], backgroundColor: ['#10b981', '#f43f5e'] }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-            const ctx2 = document.getElementById('categoryChart').getContext('2d');
-            if (barChart) barChart.destroy();
-            barChart = new Chart(ctx2, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(catData),
-                    datasets: [{ label: 'عدم انطباق', data: Object.values(catData), backgroundColor: '#4f46e5' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-        }
-
-        window.removeRecord = async function(id) {
-            if (confirm('این رکورد حذف شود؟')) {
-                await db.inspections.delete(id);
-                await load new Chart(ctx1, {
                 type: 'doughnut',
                 data: {
                     labels: ['منطبق', 'عدم انطباق'],
