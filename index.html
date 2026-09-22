@@ -1,166 +1,297 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سامانه جامع بازرسی HSE</title>
-    <!-- Tailwind CSS (CDN) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Dexie.js (دیتابیس آفلاین) -->
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-    <!-- Chart.js (نمودارها) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS (خروجی اکسل) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>سامانه بازرسی HSE</title>
+  <meta name="theme-color" content="#0284c7">
+  
+  <!-- Tailwind CSS & Custom Style -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./style.css">
+  
+  <!-- CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-20 md:pb-6">
 
-    <!-- نوار عنوان -->
-    <header class="bg-teal-700 text-white shadow-md p-4 sticky top-0 z-50">
-        <div class="max-w-5xl mx-auto flex justify-between items-center">
-            <h1 class="text-lg md:text-xl font-bold flex items-center gap-2">
-                🛡️ سامانه جامع بازرسی HSE
-            </h1>
-            <span id="network-status" class="text-xs bg-teal-800 px-3 py-1 rounded-full text-teal-100">آفلاین / آنلاین</span>
+  <!-- هدر اصلی -->
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-sky-500/20">
+          <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
         </div>
-    </header>
-
-    <!-- نوار منو -->
-    <nav class="bg-white border-b border-slate-200 sticky top-14 z-40 shadow-sm overflow-x-auto">
-        <div class="max-w-5xl mx-auto flex">
-            <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active-tab">📊 داشبورد آماری</button>
-            <button onclick="switchTab('electrical')" id="tab-electrical" class="tab-btn">⚡ ایمنی برق</button>
-            <button onclick="switchTab('firebox')" id="tab-firebox" class="tab-btn">🚒 جعبه آتش‌نشانی (فایرباکس)</button>
-            <button onclick="switchTab('extinguisher')" id="tab-extinguisher" class="tab-btn">🧯 کپسول‌های اطفاء</button>
-            <button onclick="switchTab('kitchen')" id="tab-kitchen" class="tab-btn">🍽️ آشپزخانه و غذاخوری</button>
-            <button onclick="switchTab('history')" id="tab-history" class="tab-btn">📑 آرشیو و خروجی اکسل</button>
+        <div>
+          <h1 class="text-base font-extrabold text-white">سامانه هوشمند بازرسی HSE</h1>
+          <p class="text-[11px] text-slate-400">سیستم ثبت و ممیزی آفلاین ایمنی و بهداشت</p>
         </div>
-    </nav>
+      </div>
+      
+      <!-- دکمه‌های سوئیچ دسکتاپ -->
+      <nav class="hidden md:flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <button onclick="switchMainTab('checklists')" id="nav-btn-checklists" class="nav-btn px-4 py-1.5 rounded-lg text-xs font-semibold bg-sky-600 text-white transition-all flex items-center gap-1.5">
+          <i data-lucide="clipboard-list" class="w-4 h-4"></i> ثبت بازرسی
+        </button>
+        <button onclick="switchMainTab('records')" id="nav-btn-records" class="nav-btn px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          <i data-lucide="database" class="w-4 h-4"></i> سوابق بازرسی
+        </button>
+        <button onclick="switchMainTab('dashboard')" id="nav-btn-dashboard" class="nav-btn px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> داشبورد و آمار
+        </button>
+      </nav>
+    </div>
+  </header>
 
-    <!-- محتوای اصلی -->
-    <main class="max-w-5xl mx-auto p-4 flex-grow w-full">
+  <!-- محتوای اصلی -->
+  <main class="max-w-6xl mx-auto p-3 md:p-6">
 
-        <!-- ۱. بخش فرم بازرسی -->
-        <section id="form-container" class="hidden bg-white rounded-xl shadow-md p-6 border border-slate-200">
-            <h2 id="checklist-title" class="text-xl font-bold text-teal-800 mb-4 border-b pb-2">عنوان چک‌لیست</h2>
-            
-            <!-- مشخصات عمومی -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">تاریخ بازرسی:</label>
-                    <input type="text" id="insp-date" class="w-full p-2 border rounded text-sm text-center bg-white" readonly>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">نام بازرس / کارشناس HSE:</label>
-                    <input type="text" id="inspector-name" placeholder="مثلاً: نرگس کاوندی" class="w-full p-2 border rounded text-sm bg-white">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 mb-1">واحد / محل استقرار تجهیز:</label>
-                    <input type="text" id="insp-location" placeholder="مثلاً: سالن تکسچره، آشپزخانه مرکزی" class="w-full p-2 border rounded text-sm bg-white">
-                </div>
+    <!-- تب ۱: ثبت چک‌لیست -->
+    <section id="tab-checklists" class="tab-content block">
+      
+      <!-- نوار انتخاب چک‌لیست -->
+      <div class="mb-5">
+        <p class="text-xs text-slate-400 font-medium mb-2.5">انتخاب چک‌لیست تخصصی:</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          
+          <button onclick="selectChecklist('kitchen')" id="btn-select-kitchen" class="checklist-selector-btn text-right p-3 rounded-xl border-2 border-sky-500 bg-slate-800 transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded font-bold">آشپزخانه</span>
+              <i data-lucide="utensils" class="w-4 h-4 text-cyan-400"></i>
+            </div>
+            <p class="text-xs font-bold text-white truncate">بهداشت آشپزخانه</p>
+          </button>
+
+          <button onclick="selectChecklist('elec_panels')" id="btn-select-elec_panels" class="checklist-selector-btn text-right p-3 rounded-xl border-2 border-slate-800 bg-slate-900 transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-bold">برق ۱</span>
+              <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <p class="text-xs font-bold text-white truncate">تابلوهای اصلی و فرعی</p>
+          </button>
+
+          <button onclick="selectChecklist('elec_substation')" id="btn-select-elec_substation" class="checklist-selector-btn text-right p-3 rounded-xl border-2 border-slate-800 bg-slate-900 transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-bold">برق ۲</span>
+              <i data-lucide="cpu" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <p class="text-xs font-bold text-white truncate">پست و ترانسفورماتور</p>
+          </button>
+
+          <button onclick="selectChecklist('elec_portable')" id="btn-select-elec_portable" class="checklist-selector-btn text-right p-3 rounded-xl border-2 border-slate-800 bg-slate-900 transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-bold">برق ۳</span>
+              <i data-lucide="drill" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <p class="text-xs font-bold text-white truncate">تجهیزات پرتابل</p>
+          </button>
+
+          <button onclick="selectChecklist('elec_earthing')" id="btn-select-elec_earthing" class="checklist-selector-btn text-right p-3 rounded-xl border-2 border-slate-800 bg-slate-900 transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[10px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded font-bold">برق ۴</span>
+              <i data-lucide="cable" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <p class="text-xs font-bold text-white truncate">ارتینگ و عمومی</p>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- فرم بازرسی -->
+      <form id="inspectionMainForm" onsubmit="submitActiveInspection(event)" class="space-y-5">
+        
+        <!-- هدر مشخصات -->
+        <div class="bg-slate-900 rounded-2xl p-4 md:p-6 border border-slate-800 shadow-xl">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-4 mb-4 border-b border-slate-800">
+            <div>
+              <span id="formBadge" class="text-[11px] font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30 px-2.5 py-1 rounded-full mb-1.5 inline-block">بهداشت محیط</span>
+              <h2 id="formTitle" class="text-base md:text-lg font-extrabold text-white">بازرسی و ممیزی بهداشت و ایمنی آشپزخانه و غذاخوری</h2>
+            </div>
+            <span class="text-xs text-slate-400">فرم ثبت الکترونیک HSE</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-xs text-slate-300 font-medium mb-1">تاریخ بازرسی</label>
+              <input type="date" id="insp_date" name="insp_date" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
             </div>
 
-            <!-- آیتم‌های استاندارد چک‌لیست -->
-            <div id="checklist-questions" class="space-y-4">
-                <!-- سوالات به صورت داینامیک از جاوااسکریپت تزریق می‌شوند -->
+            <div>
+              <label class="block text-xs text-slate-300 font-medium mb-1">شیفت کاری</label>
+              <select name="insp_shift" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+                <option value="صبح">شیفت صبح</option>
+                <option value="عصر">شیفت عصر</option>
+                <option value="شب">شیفت شب</option>
+              </select>
             </div>
 
-            <!-- دکمه ثبت -->
-            <div class="mt-8 flex justify-end">
-                <button onclick="saveInspection()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg flex items-center gap-2 transition duration-200">
-                    💾 ثبت نهایی ارزیابی
-                </button>
-            </div>
-        </section>
-
-        <!-- ۲. بخش داشبورد و نمودارها -->
-        <section id="dashboard-view" class="space-y-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-white p-4 rounded-xl shadow border border-slate-200 text-center">
-                    <span class="text-sm text-slate-500 font-bold">کل بازرسی‌ها</span>
-                    <p id="total-inspections" class="text-2xl font-black text-teal-700 mt-2">0</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow border border-slate-200 text-center">
-                    <span class="text-sm text-slate-500 font-bold">موارد ایمن</span>
-                    <p id="total-safe" class="text-2xl font-black text-emerald-600 mt-2">0</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow border border-slate-200 text-center">
-                    <span class="text-sm text-slate-500 font-bold">عدم‌انطباق (خطر)</span>
-                    <p id="total-unsafe" class="text-2xl font-black text-rose-600 mt-2">0</p>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow border border-slate-200 text-center">
-                    <span class="text-sm text-slate-500 font-bold">نرخ مطابقت کلی</span>
-                    <p id="compliance-rate" class="text-2xl font-black text-blue-600 mt-2">0%</p>
-                </div>
+            <div>
+              <label class="block text-xs text-slate-300 font-medium mb-1">نام بازرس</label>
+              <input type="text" name="insp_inspector" placeholder="نام کارشناس HSE" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-white p-5 rounded-xl shadow border border-slate-200">
-                    <h3 class="font-bold text-slate-700 mb-4 text-center">تعداد عدم‌انطباق به تفکیک حوزه</h3>
-                    <div class="relative h-64">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-xl shadow border border-slate-200">
-                    <h3 class="font-bold text-slate-700 mb-4 text-center">نسبت کل وضعیت‌های ثبت شده</h3>
-                    <div class="relative h-64 flex justify-center">
-                        <canvas id="ratioChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- ۳. بخش تاریخچه و خروجی اکسل -->
-        <section id="history-view" class="hidden bg-white rounded-xl shadow-md p-6 border border-slate-200 space-y-6">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-4 border-b pb-4">
-                <div>
-                    <h2 class="text-xl font-bold text-slate-800">سوابق ارزیابی‌ها</h2>
-                    <p class="text-xs text-slate-500 mt-1">امکان فیلتر، مشاهده جزئیات و استخراج گزارش اکسل</p>
-                </div>
-                <div class="flex gap-2">
-                    <select id="export-filter" class="p-2 border rounded-lg text-sm bg-slate-50">
-                        <option value="all">تمام چک‌لیست‌ها</option>
-                        <option value="electrical">ایمنی برق</option>
-                        <option value="firebox">فایرباکس</option>
-                        <option value="extinguisher">کپسول‌ها</option>
-                        <option value="kitchen">آشپزخانه</option>
-                    </select>
-                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center gap-2 text-sm transition">
-                        📊 خروجی اکسل
-                    </button>
-                    <button onclick="clearAllData()" class="bg-rose-500 hover:bg-rose-600 text-white py-2 px-3 rounded-lg text-xs">
-                        🗑️ پاکسازی
-                    </button>
-                </div>
+            <div>
+              <label class="block text-xs text-slate-300 font-medium mb-1">کد واحد / بخش</label>
+              <input type="text" name="insp_unit_code" placeholder="مثال: U-102" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-right border-collapse">
-                    <thead>
-                        <tr class="bg-slate-100 text-slate-600 text-xs border-b">
-                            <th class="p-3">ردیف</th>
-                            <th class="p-3">حوزه بازرسی</th>
-                            <th class="p-3">محل استقرار</th>
-                            <th class="p-3">تاریخ</th>
-                            <th class="p-3">ایمن</th>
-                            <th class="p-3">ناایمن</th>
-                            <th class="p-3">عملیات</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-table-body" class="text-sm divide-y divide-slate-200">
-                        <!-- رکوردها اینجا قرار می‌گیرند -->
-                    </tbody>
-                </table>
+            <div>
+              <label class="block text-xs text-amber-300 font-bold mb-1">کد تجهیز (Equipment Code) *</label>
+              <input type="text" name="insp_equipment_code" placeholder="مثال: DB-MAIN-01 یا KITCH-REF-02" required class="w-full bg-slate-950 border border-amber-500/60 rounded-lg px-3 py-2 text-xs text-amber-200 focus:outline-none focus:border-amber-400 font-mono">
             </div>
-        </section>
 
-    </main>
+            <div>
+              <label class="block text-xs text-slate-300 font-medium mb-1">محل دقیق بازرسی</label>
+              <input type="text" name="insp_location" placeholder="مثال: انبار سردخانه / سالن ریسندگی" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+            </div>
 
-    <footer class="bg-slate-800 text-slate-400 text-xs py-4 text-center mt-auto">
-        سامانه یکپارچه مانیتورینگ و بازرسی ایمنی، بهداشت و محیط زیست (HSE)
-    </footer>
+            <div class="sm:col-span-2 md:col-span-3">
+              <label class="block text-xs text-slate-300 font-medium mb-1">نام سرپرست / مسئول واحد حاضر در محل</label>
+              <input type="text" name="insp_supervisor" placeholder="نام سرپرست واحد" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+            </div>
+          </div>
+        </div>
 
-    <script src="app.js"></script>
+        <!-- کانتینر سوالات -->
+        <div id="checklistItemsContainer" class="space-y-4"></div>
+
+        <!-- نتیجه‌گیری نهایی -->
+        <div class="bg-slate-900 rounded-2xl p-4 md:p-6 border border-slate-800 shadow-xl space-y-4">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i> نتیجه‌گیری و وضعیت نهایی ارزیابی
+          </h3>
+
+          <div>
+            <label class="block text-xs text-slate-300 font-medium mb-2">سطح ریسک و وضعیت ارزیابی:</label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <label class="cursor-pointer">
+                <input type="radio" name="overall_status" value="compliant" class="peer sr-only radio-custom" checked>
+                <div class="p-3 rounded-xl border border-slate-700 bg-slate-950 text-center peer-checked:border-emerald-500 peer-checked:bg-emerald-950/40 peer-checked:text-emerald-300 transition-all">
+                  <p class="text-xs font-bold">انطباق کامل (عالی)</p>
+                  <p md:p-6 border border-slate-800 shadow-xl space-y-4">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i> نتیجه‌گیری و وضعیت نهایی ارزیابی
+          </h3>
+
+          <div>
+            <label class="block text-xs text-slate-300 font-medium mb-2">سطح ریسک و وضعیت ارزیابی:</label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <label class="cursor-pointer">
+                <input type="radio" name="overall_status" value="compliant" class="peer sr-only radio-custom" checked>
+                <div class="p-3 rounded-xl border border-slate-700 bg-slate-950 text-center peer-checked:border-emerald-500 peer-checked:bg-emerald-950/40 peer-checked:text-emerald-300 transition-all">
+                  <p class="text-xs font-bold">انطباق کامل (عالی)</p>
+                  <p class="text-[10px] text-slate-400 mt-0.5">فاقد عدم انطباق بحرانی</p>
+                </div>
+              </label>
+
+              <label class="cursor-pointer">
+                <input type="radio" name="overall_status" value="warning" class="peer sr-only radio-custom">
+                <div class="p-3 rounded-xl border border-slate-700 bg-slate-950 text-center peer-checked:border-amber-500 peer-checked:bg-amber-950/40 peer-checked:text-amber-300 transition-all">
+                  <p class="text-xs font-bold">اقدام اصلاحی (متوسط)</p>
+                  <p class="text-[10px] text-slate-400 mt-0.5">پیگیری با مهلت زمانی bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs text-white focus:outline-none focus:border-sky-500"></textarea>
+          </div>
+
+          <div class="pt-2 flex justify-end">
+            <button type="submit" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white text-sm font-bold shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="save" class="w-4 h-4"></i> ثبت نهایی گزارش بازرسی
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- تب ۲: سوابق -->
+    <section id="tab-records" class="tab-content hidden space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800">
+        <div>
+          <h2 class="text-base font-bold text-white">سوابق بازرسی‌های ثبت‌شده</h2>
+          <p class="text-xs text-slate-400">تمام گزارش‌ها در حافظه محلی مرورگر ذخیره شده و قابل خروجی اکسل است.</p>
+        </div>
+        <button onclick="exportAllToExcel()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition-all">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> دانلود کلی سوابق (اکسل)
+        </button>
+      </div>
+
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-right border-collapse">
+            <thead>
+              <tr class="bg-slate-950/80 border-b border-slate-800 text-[11px] font-bold text-slate-400">
+                <th class="py-3 px-3">عنوان بازرسی</th>
+                <th class="py-3 px-3">تاریخ و شیفت</th>
+                <th class="py-3 px-3">بازرس</th>
+                <th class="py-3 px-3">کد تجهیز</th>
+                <th class="py-3 px-3">محل</th>
+                <th class="py-3 px-3">وضعیت نهایی</th>
+                <th class="py-3 px-3">عملیات</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTableBody" class="divide-y divide-slate-800/60"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- تب ۳: داشبورد -->
+    <section id="tab-dashboard" class="tab-content hidden space-y-5">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p class="text-xs text-slate-400">کل بازرسی‌ها</p>
+          <p id="stat-total" class="text-2xl font-black text-white mt-1">0</p>
+        </div>
+        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p class="text-xs text-emerald-400">انطباق کامل</p>
+          <p id="stat-compliant" class="text-2xl font-black text-emerald-400 mt-1">0</p>
+        </div>
+        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p class="text-xs text-amber-400">اقدام اصلاحی</p>
+          <p id="stat-warning" class="text-2xl font-black text-amber-400 mt-1">0</p>
+        </div>
+        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p class="text-xs text-rose-400">بحرانی / توقف</p>
+          <p id="stat-critical" class="text-2xl font-black text-rose-400 mt-1">0</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-slate-900 p-4 md:p-5 rounded-2xl border border-slate-800">
+          <h3 class="text-xs font-bold text-slate-300 mb-4">وضعیت کلی نتایج بازرسی‌ها</h3>
+          <div class="max-w-[260px] mx-auto">
+            <canvas id="chartStatus"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 p-4 md:p-5 rounded-2xl border border-slate-800">
+          <h3 class="text-xs font-bold text-slate-300 mb-4">تفکیک بازرسی‌ها بر اساس حوزه</h3>
+          <div>
+            <canvas id="chartCategory"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- منوی پایین صفحه موبایل -->
+  <div class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-3 py-2 flex items-center justify-around">
+    <button onclick="switchMainTab('checklists')" class="flex flex-col items-center gap-1 text-slate-400 focus:text-sky-400">
+      <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold">فرم بازرسی</span>
+    </button>
+    <button onclick="switchMainTab('records')" class="flex flex-col items-center gap-1 text-slate-400 focus:text-sky-400">
+      <i data-lucide="database" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold">سوابق</span>
+    </button>
+    <button onclick="switchMainTab('dashboard')" class="flex flex-col items-center gap-1 text-slate-400 focus:text-sky-400">
+      <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold">داشبورد</span>
+    </button>
+  </div>
+
+  <script src="./app.js"></script>
 </body>
 </html>
