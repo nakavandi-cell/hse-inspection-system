@@ -3,85 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سامانه جامع بازرسی HSE</title>
+    <title>سامانه جامع ممیزی و بازرسی HSE</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Dexie.js (IndexedDB Wrapper) -->
     <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (Excel Export) -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
 </head>
-<body class="bg-gray-100 font-sans text-gray-800">
+<body class="bg-slate-100 text-slate-800 font-sans antialiased">
 
-    <header class="bg-blue-800 text-white py-4 px-6 shadow-md">
-        <div class="max-w-6xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl md:text-2xl font-bold">سامانه جامع بازرسی و ممیزی HSE</h1>
-            <button id="exportExcelBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition font-medium flex items-center gap-2">
-                📊 خروجی اکسل کلی
-            </button>
+    <!-- نوار ناوبری اصلی -->
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <span class="text-2xl">🛡️</span>
+                <div>
+                    <h1 class="text-lg md:text-xl font-bold tracking-tight">سامانه ممیزی و بازرسی HSE</h1>
+                    <p class="text-xs text-slate-400">داشبورد یکپارچه ارزیابی ریسک و ایمنی تجهیزات</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="exportExcelBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-xs md:text-sm font-semibold transition flex items-center gap-1.5 shadow">
+                    <span>📊</span>
+                    <span>دریافت خروجی جامع اکسل (.xlsx)</span>
+                </button>
+            </div>
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
 
-        <!-- انتخاب چک‌لیست -->
-        <section class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-            <label for="checklistSelect" class="block text-gray-700 font-bold mb-2">نوع چک‌لیست بازرسی را انتخاب کنید:</label>
-            <select id="checklistSelect" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
-                <option value="">-- لطفاً یک چک‌لیست انتخاب کنید --</option>
-                <optgroup label="آشپزخانه و غذاخوری">
-                    <option value="kitchen">آشپزخانه و غذاخوری (۱۸ بند)</option>
-                </optgroup>
-                <optgroup label="ایمنی برق تخصصی">
-                    <option value="elec_panel">تابلوهای برق اصلی و فرعی</option>
-                    <option value="elec_substation">پست‌های توزیع و ترانسفورماتورها</option>
-                    <option value="elec_portable">ابزارها و تجهیزات برقی پرتابل</option>
-                    <option value="elec_general">ایمنی عمومی برق و ارتینگ محیطی</option>
-                </optgroup>
-                <optgroup label="تجهیزات اعلام و اطفای حریق">
-                    <option value="fire_ext">کپسول‌های خاموش‌کننده حریق</option>
-                    <option value="fire_box">جعبه‌های آتش‌نشانی و هوزریل</option>
-                </optgroup>
-            </select>
+        <!-- بخش آمار و شاخص‌های کلیدی عملکرد (KPI Cards) -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">تعداد کل بازرسی‌ها</p>
+                    <h4 id="kpiTotal" class="text-2xl font-black text-slate-800 mt-1">0</h4>
+                </div>
+                <div class="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl">📋</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">میانگین انطباق کل</p>
+                    <h4 id="kpiCompliance" class="text-2xl font-black text-emerald-600 mt-1">0%</h4>
+                </div>
+                <div class="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">✅</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">کل موارد عدم‌انطباق</p>
+                    <h4 id="kpiNonConform" class="text-2xl font-black text-rose-600 mt-1">0</h4>
+                </div>
+                <div class="w-11 h-11 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xl">⚠️</div>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">تجهیزات ارزیابی‌شده</p>
+                    <h4 id="kpiEquipments" class="text-2xl font-black text-indigo-600 mt-1">0</h4>
+                </div>
+                <div class="w-11 h-11 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">🏷️</div>
+            </div>
         </section>
 
-        <!-- فرم ثبت بازرسی -->
-        <form id="inspectionForm" class="hidden bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
+        <!-- بخش نمودارهای تحلیلی -->
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <span>📈</span>
+                    <span>تحلیل نموداری شاخص‌های بازرسی و ریسک</span>
+                </h3>
+                <span class="text-xs text-slate-400">به‌روزرسانی خودکار بر پایه داده‌های ثبت‌شده</span>
+            </div>
             
-            <h2 id="formTitle" class="text-lg font-bold text-blue-800 border-b pb-2">عنوان چک‌لیست</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+                <!-- نمودار دایره‌ای انطباق -->
+                <div class="flex flex-col items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <h4 class="text-xs font-bold text-slate-600 mb-3">توزیع وضعیت انطباق در کل سازمان</h4>
+                    <div class="relative w-full max-w-[280px] h-[280px]">
+                        <canvas id="complianceChart"></canvas>
+                    </div>
+                </div>
 
-            <!-- اطلاعات سربرگ -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">تاریخ بازرسی *</label>
-                    <input type="date" id="inspDate" required class="w-full p-2 border rounded-md text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">نام بازرس *</label>
-                    <input type="text" id="inspectorName" required placeholder="مثال: مهندس کاوندی" class="w-full p-2 border rounded-md text-sm">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">کد تجهیز / Tag ID *</label>
-                    <input type="text" id="equipmentCode" required placeholder="مثال: TR-01 یا PNL-B2" class="w-full p-2 border rounded-md text-sm font-mono">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">محل / واحد *</label>
-                    <input type="text" id="location" required placeholder="مثال: سالن تولید / پست برق" class="w-full p-2 border rounded-md text-sm">
+                <!-- نمودار میله‌ای مقایسه حوزه‌ها -->
+                <div class="flex flex-col items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <h4 class="text-xs font-bold text-slate-600 mb-3">تعداد عدم‌انطباق‌ها به تفکیک چک‌لیست و حوزه</h4>
+                    <div class="relative w-full h-[280px]">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
                 </div>
             </div>
+        </section>
 
-            <!-- آیتم‌های چک‌لیست (داینامیک) -->
-            <div id="checklistItems" class="space-y-4"></div>
+        <!-- بخش ثبت چک‌لیست جدید -->
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+                <span>📝</span>
+                <span>تکمیل و ثبت فرم بازرسی جدید</span>
+            </h3>
 
-            <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 rounded-lg shadow transition">
-                💾 ثبت نهایی بازرسی
-            </button>
-        </form>
+            <div>
+                <label for="checklistSelect" class="block text-xs font-bold text-slate-700 mb-2">نوع چک‌لیست بازرسی را انتخاب نمایید:</label>
+                <select id="checklistSelect" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                    <option value="">-- جهت باز شدن فرم، اینجا کلیک کنید --</option>
+                    <optgroup label="بهداشت، ایمنی محیط زیست و تغذیه">
+                        <option value="kitchen">آشپزخانه و غذاخوری (۱۸ بند تخصصی)</option>
+                    </optgroup>
+                    <optgroup label="ایمنی تخصصی برق صنعتی">
+                        <option value="elec_panel">تابلوهای برق اصلی و فرعی (MV/LV)</option>
+                        <option value="elec_substation">پست‌های توزیع، ترانسفورماتور و رومینگ</option>
+                        <option value="elec_portable">تجهیزات و ابزارهای پرتابل الکتریکی</option>
+                        <option value="elec_general">ایمنی عمومی برق، روشنایی و ارتینگ محیطی</option>
+                    </optgroup>
+                    <optgroup label="تجهیزات اعلام و اطفای حریق صنعتی">
+                        <option value="fire_ext">کپسول‌های خاموش‌کننده دستی حریق</option>
+                        <option value="fire_box">جعبه‌های آتش‌نشانی و سیستم‌های هوزریل</option>
+                    </optgroup>
+                </select>
+            </div>
 
-        <!-- داشبورد تحلیل و نمودارها -->
-        <section class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
-            <h2 class="text-lg font-bold text-gray-800 border-b pb-2">📊 گزارش تحلیلی و نمودار وضعیت</h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <h3 class="text-sm font-semibold text-gray-600 mb-3 text-center">وضعیت کلی ان
+            <!-- بدنه فرم بازرسی -->
+            <form id="inspectionForm" class="hidden space-y-6 pt-2">
+                <!-- متادیتا و هدر فرم -->
+                <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">تاریخ بازرسی *</label>
+                        <input type="date" id="inspDate" required class="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">نام و نام خانوادگی بازرس *</label>
+                        <input type="text" id="inspectorName" placeholder="مثال: مهندس کاوندی" required class="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">کد اختصاصی تجهیز (Tag ID) *</label>
+                        <input type="text" id="equipmentCode" placeholder="مثال: PNL-MCC-01 یا TR-02" required class="w-full p-2 bg-white border border-blue-400 rounded-lg text-xs font-mono uppercase font-bold text-blue-800">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">واحد / سالن استقرار *</label>
+                        <input type="text" id="location" placeholder="مثال: تکسچرایزینگ / پست مرکزی" required class="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs">
+                    </div>
+                </div>
+
+                <!-- عنوان چک‌لیست جاری -->
+                <div class="flex justify-between items-center bg-slate-800 text-white px-4 py-2.5 rounded-lg">
+                    <span id="currentFormTitle" class="font-bold text-sm">چک‌لیست انتخابی</span>
+                    <span class="text-xs bg-slate-700 px-2.5 py-1 rounded">ارزیابی ۳ حالته استاندارد</span>
+                </div>
+
+                <!-- لیست ردیف‌های بازرسی داینامیک -->
+                <div id="itemsContainer" class="space-y-3"></div>
+
+                <div class="pt-3">
+                    <button type="submit" class="w-full py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                        <span>💾</span>
+                        <span>ثبت نهایی گزارش بازرسی در حافظه محلی و نمودارها</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- سوابق و تاریخچه بازرسی‌های ثبت‌شده -->
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <span>🗂️</span>
+                    <span>سوابق و تاریخچه بازرسی‌های اخیر</span>
+                </h3>
+                <button id="clearDataBtn" class="text-xs text-rose-600 hover:underline">پاک‌سازی کل داده‌ها</button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-right text-xs">
+                    <thead class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                        <tr>
+                            <th class="p-2.5">تاریخ</th>
+                            <th class="p-2.5">کد تجهیز (Tag)</th>
+                            <th class="p-2.5">چک‌لیست</th>
+                            <th class="p-2.5">محل استقرار</th>
+                            <th class="p-2.5">بازرس</th>
+                            <th class="p-2.5 text-center">انطباق</th>
+                            <th class="p-2.5 text-center">عدم‌انطباق</th>
+                            <th class="p-2.5 text-center">نرخ انطباق</th>
+                            <th class="p-2.5 text-center">عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-slate-100">
+                        <!-- رکوردهای ثبت‌شده به صورت خودکار اضافه می‌شوند -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center py-6 text-xs text-slate-400 border-t border-slate-200 mt-12">
+        سامانه ممیزی و پایش ایمنی، بهداشت و محیط زیست (HSE Inspection System) — آماده بهره‌برداری آفلاین
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
