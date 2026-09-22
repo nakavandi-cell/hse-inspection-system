@@ -9,10 +9,18 @@
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jalaali-js/dist/jalaali.min.js"></script>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+    
+    <!-- کتابخانه تقویم شمسی اختصاصی ایران (jQuery + Persian Datepicker) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css"/>
+    <script src="https://unpkg.com/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://unpkg.com/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+
     <style>
         body { font-family: 'Vazirmatn', sans-serif; }
+        .pwt-btn-calendar { display: none !important; }
+        .datepicker-plot-area { font-family: 'Vazirmatn', sans-serif !important; border-radius: 12px; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen p-4 md:p-8">
@@ -23,7 +31,7 @@
         <header class="bg-blue-800 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold">سامانه مدیریت و تحلیل بازرسی‌های HSE</h1>
-                <p class="text-blue-200 text-sm mt-1">ثبت ممیزی، چک‌لیست‌های ایمنی و پایش شاخص‌های عملکردی</p>
+                <p class="text-blue-200 text-sm mt-1">ثبت ممیزی با تاریخ رسمی ایران (هجری شمسی) و پایش شاخص‌های ایمنی</p>
             </div>
             <div class="flex items-center gap-3">
                 <button id="exportExcelBtn" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 shadow">
@@ -35,7 +43,7 @@
             </div>
         </header>
 
-        <!-- کارت‌های آمار و شاخص‌ها -->
+        <!-- کارت‌های شاخص KPI -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
                 <span class="text-xs text-slate-500 font-medium">کل بازرسی‌ها</span>
@@ -58,7 +66,7 @@
         <!-- انتخاب چک‌لیست -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <label class="block text-sm font-bold text-slate-700 mb-2">انتخاب حوزه و چک‌لیست بازرسی:</label>
-            <select id="checklistSelect" class="w-full md:w-1/2 p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500">
+            <select id="checklistSelect" class="w-full md:w-1/2 p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 font-medium">
                 <option value="">-- لطفاً یک چک‌لیست را انتخاب نمایید --</option>
                 <option value="kitchen">🍽️ بهداشت و ایمنی آشپزخانه و غذاخوری</option>
                 <option value="elec_panel">⚡ ایمنی تابلوهای برق (MV/LV)</option>
@@ -76,8 +84,8 @@
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
                 <div>
-                    <label class="block font-medium mb-1 text-slate-600">تاریخ بازرسی:</label>
-                    <input type="date" id="inspDate" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+                    <label class="block font-medium mb-1 text-slate-600">تاریخ بازرسی (شمسی):</label>
+                    <input type="text" id="inspDateShamsi" required readonly class="w-full p-2.5 bg-blue-50 border border-blue-300 rounded-lg font-bold text-blue-900 cursor-pointer text-center" placeholder="۱۴۰۳/۰۱/۰۱">
                 </div>
                 <div>
                     <label class="block font-medium mb-1 text-slate-600">نام بازرس:</label>
@@ -89,15 +97,15 @@
                 </div>
                 <div>
                     <label class="block font-medium mb-1 text-slate-600">موقعیت / سالن:</label>
-                    <input type="text" id="location" required placeholder="مثال: سالن تکسچرازینگ" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
+                    <input type="text" id="location" required placeholder="مثال: سالن تولید / آزمایشگاه" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg">
                 </div>
             </div>
 
-            <!-- محفظه موارد چک‌لیست -->
+            <!-- سوالات چک‌لیست -->
             <div id="itemsContainer" class="space-y-3"></div>
 
             <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition">
-                💾 ثبت نهایی ارزیابی و بروزرسانی آمار
+                💾 ثبت ارزیابی با تاریخ شمسی
             </button>
         </form>
 
@@ -117,16 +125,16 @@
             </div>
         </div>
 
-        <!-- جدول سوابق -->
+        <!-- جدول سوابق با تاریخ شمسی -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="p-4 border-b bg-slate-50">
-                <h4 class="text-sm font-bold text-slate-700">📋 آخرین بازرسی‌های ثبت‌شده</h4>
+            <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+                <h4 class="text-sm font-bold text-slate-700">📋 سوابق بازرسی‌های ثبت‌شده (تاریخ شمسی)</h4>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-right text-xs">
                     <thead class="bg-slate-100 text-slate-600 border-b">
                         <tr>
-                            <th class="p-3">تاریخ (شمسی)</th>
+                            <th class="p-3">تاریخ شمسی</th>
                             <th class="p-3">کد تجهیز</th>
                             <th class="p-3">چک‌لیست</th>
                             <th class="p-3">موقعیت</th>
@@ -144,19 +152,20 @@
 
     </div>
 
-    <!-- کدهای برنامه (بدون نیاز به فایل خارجی) -->
     <script>
+        // پایگاه داده
         const db = new Dexie('HSE_Inspection_DB');
         db.version(1).stores({
             inspections: '++id, date, inspector, equipmentCode, location, checklistType, checklistName, compliantCount, nonCompliantCount, naCount, complianceRate, issues'
         });
 
+        // بانک چک‌لیست‌ها
         const CHECKLIST_DEFINITIONS = {
             kitchen: {
                 title: 'چک‌لیست بهداشت، ایمنی و محیط زیست آشپزخانه و غذاخوری',
                 items: [
                     'وضعیت کارت بهداشت و گواهی سلامت دوره‌ای کلیه پرسنل آشپزخانه معتبر است.',
-                    'استفاده مستمر از لباس کار مصوب، روپوش سفید، کلاه، ماسک و دستکش رعایت می‌شود.',
+                    'استفاده مستمر از لباس کار مصوب، روپوش، کلاه، ماسک و دستکش رعایت می‌شود.',
                     'تفکیک فیزیکی مراحل آماده‌سازی گوشت، سبزیجات و پخت برقرار است.',
                     'عملکرد تهویه صنعتی، هودهای پخت و سیستم تخلیه دود استاندارد است.',
                     'کف، دیوارها و سقف سالن پخت تمیز و فاقد ترک یا آسیب فیزیکی است.',
@@ -234,84 +243,81 @@
             }
         };
 
-        function toShamsi(dateStr) {
-            if (!dateStr) return 'نامشخص';
-            try {
-                const d = new Date(dateStr);
-                if (typeof jalaali !== 'undefined' && jalaali.toJalaali) {
-                    const j = jalaali.toJalaali(d.getFullYear(), d.getMonth() + 1, d.getDate());
-                    return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`;
-                }
-                return d.toLocaleDateString('fa-IR');
-            } catch(e) {
-                return dateStr;
-            }
-        }
-
         let pieChart = null;
         let barChart = null;
 
-        document.addEventListener('DOMContentLoaded', async () => {
-            const dateInput = document.getElementById('inspDate');
-            if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+        $(document).ready(function() {
+            // فعال‌سازی تقویم شمسی روی فیلد تاریخ
+            $("#inspDateShamsi").persianDatepicker({
+                format: 'YYYY/MM/DD',
+                initialValue: true,
+                autoClose: true,
+                calendar: {
+                    persian: {
+                        locale: 'fa'
+                    }
+                }
+            });
 
-            document.getElementById('checklistSelect').addEventListener('change', (e) => {
-                const key = e.target.value;
-                const form = document.getElementById('inspectionForm');
-                const container = document.getElementById('itemsContainer');
-                const titleEl = document.getElementById('currentFormTitle');
+            // رویداد تغییر چک‌لیست
+            $('#checklistSelect').on('change', function() {
+                const key = $(this).val();
+                const form = $('#inspectionForm');
+                const container = $('#itemsContainer');
+                const titleEl = $('#currentFormTitle');
 
                 if (!key || !CHECKLIST_DEFINITIONS[key]) {
-                    form.classList.add('hidden');
-                    container.innerHTML = '';
+                    form.addClass('hidden');
+                    container.empty();
                     return;
                 }
 
                 const data = CHECKLIST_DEFINITIONS[key];
-                titleEl.textContent = data.title;
-                container.innerHTML = '';
+                titleEl.text(data.title);
+                container.empty();
 
                 data.items.forEach((item, index) => {
-                    const row = document.createElement('div');
-                    row.className = 'bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2';
-                    row.innerHTML = `
-                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                            <span class="font-medium text-slate-700 leading-relaxed">${index + 1}. ${item}</span>
-                            <div class="flex items-center gap-3 shrink-0">
-                                <label class="inline-flex items-center gap-1 cursor-pointer text-emerald-700">
-                                    <input type="radio" name="item_${index}" value="C" checked>
-                                    <span>انطباق</span>
-                                </label>
-                                <label class="inline-flex items-center gap-1 cursor-pointer text-rose-700">
-                                    <input type="radio" name="item_${index}" value="NC">
-                                    <span>عدم‌انطباق</span>
-                                </label>
-                                <label class="inline-flex items-center gap-1 cursor-pointer text-slate-600">
-                                    <input type="radio" name="item_${index}" value="NA">
-                                    <span>کاربرد ندارد</span>
-                                </label>
+                    const row = `
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2">
+                            <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                                <span class="font-medium text-slate-700 leading-relaxed">${index + 1}. ${item}</span>
+                                <div class="flex items-center gap-3 shrink-0">
+                                    <label class="inline-flex items-center gap-1 cursor-pointer text-emerald-700">
+                                        <input type="radio" name="item_${index}" value="C" checked>
+                                        <span>انطباق</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1 cursor-pointer text-rose-700">
+                                        <input type="radio" name="item_${index}" value="NC">
+                                        <span>عدم‌انطباق</span>
+                                    </label>
+                                    <label class="inline-flex items-center gap-1 cursor-pointer text-slate-600">
+                                        <input type="radio" name="item_${index}" value="NA">
+                                        <span>کاربرد ندارد</span>
+                                    </label>
+                                </div>
                             </div>
+                            <input type="text" id="action_${index}" placeholder="توضیحات و اقدام اصلاحی در صورت عدم انطباق..." class="w-full p-2 bg-white border border-slate-200 rounded text-xs">
                         </div>
-                        <input type="text" id="action_${index}" placeholder="توضیحات و اقدام اصلاحی در صورت عدم انطباق..." class="w-full p-2 bg-white border border-slate-200 rounded text-xs">
                     `;
-                    container.appendChild(row);
+                    container.append(row);
                 });
 
-                form.classList.remove('hidden');
+                form.removeClass('hidden');
             });
 
-            document.getElementById('inspectionForm').addEventListener('submit', async (e) => {
+            // ثبت فرم
+            $('#inspectionForm').on('submit', async function(e) {
                 e.preventDefault();
-                const key = document.getElementById('checklistSelect').value;
+                const key = $('#checklistSelect').val();
                 const data = CHECKLIST_DEFINITIONS[key];
-                const rawDate = document.getElementById('inspDate').value;
+                const shamsiDate = $('#inspDateShamsi').val();
 
                 let cCount = 0, ncCount = 0, naCount = 0;
                 let issues = [];
 
                 data.items.forEach((_, idx) => {
-                    const val = document.querySelector(`input[name="item_${idx}"]:checked`).value;
-                    const action = document.getElementById(`action_${idx}`).value.trim();
+                    const val = $(`input[name="item_${idx}"]:checked`).val();
+                    const action = $(`#action_${idx}`).val().trim();
                     if (val === 'C') cCount++;
                     else if (val === 'NC') {
                         ncCount++;
@@ -323,10 +329,10 @@
                 const rate = total > 0 ? Math.round((cCount / total) * 100) : 100;
 
                 await db.inspections.add({
-                    date: toShamsi(rawDate),
-                    inspector: document.getElementById('inspectorName').value.trim(),
-                    equipmentCode: document.getElementById('equipmentCode').value.trim().toUpperCase(),
-                    location: document.getElementById('location').value.trim(),
+                    date: shamsiDate, // ثبت تاریخ رسمی شمسی
+                    inspector: $('#inspectorName').val().trim(),
+                    equipmentCode: $('#equipmentCode').val().trim().toUpperCase(),
+                    location: $('#location').val().trim(),
                     checklistType: key,
                     checklistName: data.title,
                     compliantCount: cCount,
@@ -336,41 +342,57 @@
                     issues: issues.join(' | ')
                 });
 
-                document.getElementById('inspectionForm').reset();
-                document.getElementById('inspectionForm').classList.add('hidden');
-                document.getElementById('checklistSelect').value = '';
-                alert('✅ بازرسی با موفقیت ثبت شد.');
+                this.reset();
+                $('#inspectionForm').addClass('hidden');
+                $('#checklistSelect').val('');
+                alert(`✅ بازرسی در تاریخ شمسی (${shamsiDate}) با موفقیت ثبت شد.`);
                 await loadRecords();
             });
 
-            document.getElementById('exportExcelBtn').addEventListener('click', async () => {
+            // خروجی اکسل با تاریخ شمسی
+            $('#exportExcelBtn').on('click', async function() {
                 const list = await db.inspections.toArray();
-                if (!list.length) return alert('اطلاعاتی برای خروجی وجود ندارد.');
-                const ws = XLSX.utils.json_to_sheet(list);
+                if (!list.length) return alert('اطلاعاتی برای صدور وجود ندارد.');
+                const exportData = list.map(item => ({
+                    'شناسه': item.id,
+                    'تاریخ شمسی': item.date,
+                    'کد تجهیز': item.equipmentCode,
+                    'موقعیت': item.location,
+                    'عنوان چک‌لیست': item.checklistName,
+                    'بازرس': item.inspector,
+                    'انطباق': item.compliantCount,
+                    'عدم انطباق': item.nonCompliantCount,
+                    'عدم کاربرد': item.naCount,
+                    'درصد انطباق': `${item.complianceRate}%`,
+                    'توضیحات و مغایرت‌ها': item.issues
+                }));
+                const ws = XLSX.utils.json_to_sheet(exportData);
                 const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Inspections");
-                XLSX.writeFile(wb, "HSE_Report.xlsx");
+                XLSX.utils.book_append_sheet(wb, ws, "گزارش بازرسی HSE");
+                XLSX.writeFile(wb, `HSE_Report_${new Date().getTime()}.xlsx`);
             });
 
-            document.getElementById('clearDataBtn').addEventListener('click', async () => {
-                if (confirm('آیا کل اطلاعات حذف شود؟')) {
+            // پاک‌سازی
+            $('#clearDataBtn').on('click', async function() {
+                if (confirm('کل داده‌ها پاک شوند؟')) {
                     await db.inspections.clear();
                     await loadRecords();
                 }
             });
 
-            await loadRecords();
+            loadRecords();
         });
 
+        // بارگذاری رکوردها
         async function loadRecords() {
             const list = await db.inspections.toArray();
-            document.getElementById('kpiTotal').textContent = list.length;
+            $('#kpiTotal').text(list.length);
 
             if (!list.length) {
-                document.getElementById('kpiCompliance').textContent = '0%';
-                document.getElementById('kpiNonConform').textContent = '0';
-                document.getElementById('kpiEquipments').textContent = '0';
-                document.getElementById('historyTableBody').innerHTML = '<tr><td colspan="9" class="p-4 text-center text-slate-400">داده‌ای ثبت نشده است.</td></tr>';
+                $('#kpiCompliance').text('0%');
+                $('#kpiNonConform').text('0');
+                $('#kpiEquipments').text('0');
+                $('#historyTableBody').html('<tr><td colspan="9" class="p-4 text-center text-slate-400">هنوز رکوردی با تاریخ شمسی ثبت نشده است.</td></tr>');
                 renderCharts(0, 0, {});
                 return;
             }
@@ -384,36 +406,37 @@
                 totalNC += r.nonCompliantCount;
                 totalC += r.compliantCount;
                 equips.add(r.equipmentCode);
-                const name = r.checklistName.split(' ')[1] || 'سایر';
+                const name = r.checklistName.split(' ')[1] || 'عمومی';
                 categories[name] = (categories[name] || 0) + r.nonCompliantCount;
             });
 
-            document.getElementById('kpiCompliance').textContent = Math.round(sumRate / list.length) + '%';
-            document.getElementById('kpiNonConform').textContent = totalNC;
-            document.getElementById('kpiEquipments').textContent = equips.size;
+            $('#kpiCompliance').text(Math.round(sumRate / list.length) + '%');
+            $('#kpiNonConform').text(totalNC);
+            $('#kpiEquipments').text(equips.size);
 
-            const tbody = document.getElementById('historyTableBody');
-            tbody.innerHTML = '';
+            const tbody = $('#historyTableBody');
+            tbody.empty();
             [...list].reverse().forEach(row => {
-                const tr = document.createElement('tr');
-                tr.className = 'border-b hover:bg-slate-50';
-                tr.innerHTML = `
-                    <td class="p-3 font-semibold text-slate-700">${row.date}</td>
-                    <td class="p-3 font-bold text-blue-700">${row.equipmentCode}</td>
-                    <td class="p-3 text-slate-600 truncate max-w-[140px]">${row.checklistName}</td>
-                    <td class="p-3 text-slate-600">${row.location}</td>
-                    <td class="p-3 text-slate-600">${row.inspector}</td>
-                    <td class="p-3 text-center text-emerald-600 font-bold">${row.compliantCount}</td>
-                    <td class="p-3 text-center text-rose-600 font-bold">${row.nonCompliantCount}</td>
-                    <td class="p-3 text-center font-bold">${row.complianceRate}%</td>
-                    <td class="p-3 text-center"><button onclick="removeRecord(${row.id})" class="text-rose-500 font-bold">حذف</button></td>
+                const tr = `
+                    <tr class="border-b hover:bg-slate-50 transition">
+                        <td class="p-3 font-bold text-blue-900">${row.date}</td>
+                        <td class="p-3 font-black text-slate-800">${row.equipmentCode}</td>
+                        <td class="p-3 text-slate-600 truncate max-w-[140px]">${row.checklistName}</td>
+                        <td class="p-3 text-slate-600">${row.location}</td>
+                        <td class="p-3 text-slate-600">${row.inspector}</td>
+                        <td class="p-3 text-center text-emerald-600 font-bold">${row.compliantCount}</td>
+                        <td class="p-3 text-center text-rose-600 font-bold">${row.nonCompliantCount}</td>
+                        <td class="p-3 text-center font-bold">${row.complianceRate}%</td>
+                        <td class="p-3 text-center"><button onclick="removeRecord(${row.id})" class="text-rose-500 font-bold hover:text-rose-700">حذف</button></td>
+                    </tr>
                 `;
-                tbody.appendChild(tr);
+                tbody.append(tr);
             });
 
             renderCharts(totalC, totalNC, categories);
         }
 
+        // رسم نمودارها
         function renderCharts(c, nc, catData) {
             const ctx1 = document.getElementById('complianceChart').getContext('2d');
             if (pieChart) pieChart.destroy();
@@ -432,14 +455,38 @@
                 type: 'bar',
                 data: {
                     labels: Object.keys(catData),
-                    datasets: [{ label: 'عدم انطباق', data: Object.values(catData), backgroundColor: '#6366f1' }]
+                    datasets: [{ label: 'عدم انطباق', data: Object.values(catData), backgroundColor: '#4f46e5' }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
         window.removeRecord = async function(id) {
-            if (confirm('حذف شود؟')) {
+            if (confirm('این رکورد حذف شود؟')) {
+                await db.inspections.delete(id);
+                await load new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['منطبق', 'عدم انطباق'],
+                    datasets: [{ data: [c, nc], backgroundColor: ['#10b981', '#f43f5e'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctx2 = document.getElementById('categoryChart').getContext('2d');
+            if (barChart) barChart.destroy();
+            barChart = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(catData),
+                    datasets: [{ label: 'عدم انطباق', data: Object.values(catData), backgroundColor: '#4f46e5' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        window.removeRecord = async function(id) {
+            if (confirm('این رکورد حذف شود؟')) {
                 await db.inspections.delete(id);
                 await loadRecords();
             }
